@@ -1,11 +1,9 @@
 from pydoc import describe
 
 import taichi as ti
-from config import N,COURANT_SQ, MATERIAL_PROPS,C,COURANT, SIGMA, AMPLITUDE, SRC_X, SRC_Y, DT, frame_duration, DELAY_GAUSS, print_config, alpha_max
+from config import N,COURANT_SQ, MATERIAL_PROPS,C,COURANT, SIGMA, AMPLITUDE, SRC_X, SRC_Y, DT, FRAME_DURATION, DELAY_GAUSS, print_config, ALPHA_MAX, PML_THICK
 import numpy as np
 import time
-
-from src.config import pml_thick
 
 ti.init(arch=ti.gpu)
 
@@ -16,24 +14,41 @@ ti.init(arch=ti.gpu)
 #alpha_field = ti.field(dtype=ti.f32, shape=(N_2, N_2)) # współczynniki pochlaniania
 #bk_field = ti.field(dtype=ti.f32, shape=(N_2, N_2)) # macierz bk
 
-p_old = ti.field(ti.f32, shape=(N, N))
-p_curr = ti.field(ti.f32, shape=(N, N))
-k_field = ti.field(dtype=ti.i32, shape=(N, N))
-bk_field = ti.field(dtype=ti.f32, shape=(N, N))
-#PML
-alpha_field = ti.field(dtype=ti.f32, shape=(N, N))
-alpha_A = ti.field(dtype=ti.f32, shape=(N , N))
-alpha_B = ti.field(dtype=ti.f32, shape=(N , N))
+p_old = ti.field(ti.f32, shape=(N, N)) # macierz ciśnień, do niej wsadzane są najnowsze wartosci
+p_curr = ti.field(ti.f32, shape=(N, N)) # macierz ciśnień
+
+k_field = ti.field(dtype=ti.i32, shape=(N, N)) # macierz sasiadow
+bk_field = ti.field(dtype=ti.f32, shape=(N, N)) # macierz lokalnej admintacji brzegowej
+
+alpha_field = ti.field(dtype=ti.f32, shape=(N, N)) # macierz wspólczynnikow pochlaniania materialow (potrzebne do wyznaczenia alpha_A oraz alpha_B)
+alpha_A = ti.field(dtype=ti.f32, shape=(N , N)) # macierz tlumienia stratnego
+alpha_B = ti.field(dtype=ti.f32, shape=(N , N)) # macierz tlumienia lepkiego
+
+brick_alpha, brick_density = MATERIAL_PROPS["brick"]
+air_alpha, air_density = MATERIAL_PROPS["air"]
 
 @ti.func
 def calculate_alpha_A(c, alpha, density):
     return alpha * (density * c**2 + 1.0 / density)
+
 @ti.func
 def calculate_alpha_B(c, alpha):
     return (c**2) * (alpha**2)
 
-brick_alpha, brick_density = MATERIAL_PROPS["brick"]
-air_alpha, air_density = MATERIAL_PROPS["air"]
+@ti.func
+def beta_from_alpha(alpha):
+    Beta = 0.0
+    if alpha >= 1.0:  # otwarta przestrzeń
+        Beta = 1.0
+    elif alpha <= 0.0:    # idealna ściana
+        Beta = 0.0
+    else:
+        R = ti.sqrt(1.0 - alpha)
+        Beta = (1.0 - R) / (1.0 + R)
+
+    return Beta
+
+
 @ti.kernel
 def generate_symulation_map():
     for i,j in alpha_field: # domyslnie wszedzie 4 sąsiadów i otwarta przestrzen
@@ -49,30 +64,28 @@ def generate_symulation_map():
         k_field[i, j] = count
 
     for i,j in alpha_A: # sciany
-        if i == pml_thick or i == N - pml_thick or j == pml_thick or j == N - pml_thick:
+        if i == PML_THICK or i == N - PML_THICK - 1 or j == PML_THICK or j == N - PML_THICK - 1:
             alpha_field[i,j] = brick_alpha
             alpha_A[i,j] = calculate_alpha_A(C, brick_alpha, brick_density)
             alpha_B[i,j] = calculate_alpha_B(C, brick_alpha)
 
-
-
     # tworzymy sciany pml
     for i, j in alpha_A:
         dist_x = 0.0
-        if i < pml_thick:
-            dist_x = ti.cast(pml_thick - i, ti.f32) / pml_thick
-        elif i >= N - pml_thick:
-            dist_x = ti.cast(i - (N - pml_thick) + 1, ti.f32) / pml_thick
+        if i < PML_THICK:
+            dist_x = ti.cast(PML_THICK - i, ti.f32) / PML_THICK
+        elif i >= N - PML_THICK:
+            dist_x = ti.cast(i - (N - PML_THICK) + 1, ti.f32) / PML_THICK
 
         dist_y = 0.0
-        if j < pml_thick:
-            dist_y = ti.cast(pml_thick - j, ti.f32) / pml_thick
-        elif j >= N - pml_thick:
-            dist_y = ti.cast(j - (N - pml_thick) + 1, ti.f32) / pml_thick
+        if j < PML_THICK:
+            dist_y = ti.cast(PML_THICK - j, ti.f32) / PML_THICK
+        elif j >= N - PML_THICK:
+            dist_y = ti.cast(j - (N - PML_THICK) + 1, ti.f32) / PML_THICK
 
         dist_final = ti.max(dist_x, dist_y)
         if dist_final > 0.0:
-            alpha_val = alpha_max * (dist_final ** 2)
+            alpha_val = ALPHA_MAX * (dist_final ** 2)
             alpha_field[i,j] = alpha_val
             alpha_A[i, j] = calculate_alpha_A(C, alpha_val, air_density)
             alpha_B[i, j] = calculate_alpha_B(C,alpha_val)
@@ -85,23 +98,9 @@ def generate_symulation_map():
 
 
 
-@ti.func
-def beta_from_alpha(alpha):
-    Beta = 0.0
-    if alpha >= 1.0:  # otwarta przestrzeń
-        Beta = 1.0
-    elif alpha <= 0.0:    # idealna ściana
-        Beta = 0.0
-    else:
-        R = ti.sqrt(1.0 - alpha)
-        Beta = (1.0 - R) / (1.0 + R)
-
-    return Beta
-
 @ti.kernel
 def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
     for i,j in ti.ndrange((1, N - 1), (1, N - 1)):
-        # if k_field[i , j] > 0:
         k_val = k_field[i,j]
         bk_val = bk_field[i,j]
         alpha_a = alpha_A[i,j]
@@ -114,10 +113,11 @@ def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
 
         p_prev[i, j] = (1.0 / w1) * (w2 + w3 + w4)
 
-
     #ZRODLO
     pulse = AMPLITUDE * ti.exp(- ((DT*steps - DT*DELAY_GAUSS)**2) / (2 * SIGMA**2))
     p_prev[SRC_X, SRC_Y] += pulse # soft source
+
+
 
 
 def main():
@@ -145,7 +145,7 @@ def main():
         prev_time = now
 
         accumulator+=delta_real_time
-        if(accumulator >= frame_duration):
+        if(accumulator >= FRAME_DURATION):
             if not is_paused:
                 steps += 1
                 b_old = steps % 2
