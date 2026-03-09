@@ -69,6 +69,7 @@ def generate_symulation_map():
             alpha_A[i,j] = 0.0 #calculate_alpha_A(C, brick_alpha, brick_density)
             alpha_B[i,j] = 0.0 # calculate_alpha_B(C, brick_alpha)
 
+
     # tworzymy sciany pml
     for i, j in alpha_A:
         dist_x = 0.0
@@ -85,7 +86,7 @@ def generate_symulation_map():
 
         dist_final = ti.max(dist_x, dist_y)
         if dist_final > 0.0:
-            alpha_val = ALPHA_MAX * (dist_final ** 2)
+            alpha_val = ALPHA_MAX * (dist_final ** 3)
             alpha_field[i,j] = alpha_val
             alpha_A[i, j] = calculate_alpha_A(C, alpha_val, air_density)
             alpha_B[i, j] = calculate_alpha_B(C,alpha_val)
@@ -156,7 +157,9 @@ def main():
 
             p_np = buffers[b_old].to_numpy()
             max_val = np.abs(p_np).max()
-            p_normalized = p_np / (max_val + 1e-8) # normalizujemy poniewaz chcemy uzyskac wartosci od -1 do 1
+            fixed_max = AMPLITUDE * 0.5
+            #p_normalized = p_np / (max_val + 1e-8) # normalizujemy poniewaz chcemy uzyskac wartosci od -1 do 1
+            p_normalized = p_np / fixed_max
             gray_val = p_normalized * 0.5 + 0.5 # uzyskujemy wartoci od 0 do 1
 
             gray_val = np.clip(gray_val, 0.0, 1.0) # zabezpieczenie choc i tak juz wczesniej znormalizowane
