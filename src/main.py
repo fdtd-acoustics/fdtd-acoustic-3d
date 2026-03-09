@@ -1,70 +1,89 @@
+from pydoc import describe
+
 import taichi as ti
-from config import N,COURANT_SQ, N_2, MATERIALS,COURANT, SIGMA, AMPLITUDE, SRC_X, SRC_Y, DT, frame_duration, DELAY_GAUSS, print_config
+from config import N,COURANT_SQ, MATERIAL_PROPS,C,COURANT, SIGMA, AMPLITUDE, SRC_X, SRC_Y, DT, frame_duration, DELAY_GAUSS, print_config, alpha_max
 import numpy as np
 import time
 
+from src.config import pml_thick
+
 ti.init(arch=ti.gpu)
 
-p_old = ti.field(ti.f32, shape=(N_2, N_2)) # macierz ciśnień, do niej wsadzane są najnowsze wartosci
-p_curr = ti.field(ti.f32, shape=(N_2, N_2))
+# p_old = ti.field(ti.f32, shape=(N_2, N_2)) # macierz ciśnień, do niej wsadzane są najnowsze wartosci
+# p_curr = ti.field(ti.f32, shape=(N_2, N_2))
 
-k_field = ti.field(dtype=ti.i32, shape=(N_2, N_2)) #ilosc sasiadow
-alpha_field = ti.field(dtype=ti.f32, shape=(N_2, N_2)) # współczynniki pochlaniania
-bk_field = ti.field(dtype=ti.f32, shape=(N_2, N_2)) # macierz bk
+#k_field = ti.field(dtype=ti.i32, shape=(N_2, N_2)) #ilosc sasiadow
+#alpha_field = ti.field(dtype=ti.f32, shape=(N_2, N_2)) # współczynniki pochlaniania
+#bk_field = ti.field(dtype=ti.f32, shape=(N_2, N_2)) # macierz bk
 
+p_old = ti.field(ti.f32, shape=(N, N))
+p_curr = ti.field(ti.f32, shape=(N, N))
+k_field = ti.field(dtype=ti.i32, shape=(N, N))
+bk_field = ti.field(dtype=ti.f32, shape=(N, N))
+#PML
+alpha_field = ti.field(dtype=ti.f32, shape=(N, N))
+alpha_A = ti.field(dtype=ti.f32, shape=(N , N))
+alpha_B = ti.field(dtype=ti.f32, shape=(N , N))
+
+@ti.func
+def calculate_alpha_A(c, alpha, density):
+    return alpha * (density * c**2 + 1.0 / density)
+@ti.func
+def calculate_alpha_B(c, alpha):
+    return (c**2) * (alpha**2)
+
+brick_alpha, brick_density = MATERIAL_PROPS["brick"]
+air_alpha, air_density = MATERIAL_PROPS["air"]
 @ti.kernel
-def generation_symulation_map():
-    for i,j in k_field: # domyslnie wszedzie 4 sąsiadów i otwarta przestrzen
-        k_field[i , j] = 4
-        alpha_field [i, j] = 1.0
+def generate_symulation_map():
+    for i,j in alpha_field: # domyslnie wszedzie 4 sąsiadów i otwarta przestrzen
+        alpha_field[i, j] = 0.0
+        alpha_A[i,j] = 0.0
+        alpha_B[i, j] = 0.0
 
-    for i,j in k_field: # warstwa zewnetrzna potrzebna do obliczeń
-        if i == 0 or j == 0 or i == N_2 - 1 or j == N_2 - 1:
-            k_field[i, j] = 0
-            alpha_field[i, j] = 0.0
+        count = 0
+        if i > 0: count += 1
+        if i < N - 1: count += 1
+        if j > 0: count += 1
+        if j < N - 1: count += 1
+        k_field[i, j] = count
 
-    for i,j in k_field: # sciany
-        if((i==1 and j ==1) or (i==1 and j==N_2-2) or (i==N_2-2 and j==1) or (i==N_2-2 and j==N_2-2)):
-            k_field[i, j] = 2
-            alpha_field[i, j] = MATERIALS["brick"]
+    for i,j in alpha_A: # sciany
+        if i == pml_thick or i == N - pml_thick or j == pml_thick or j == N - pml_thick:
+            alpha_field[i,j] = brick_alpha
+            alpha_A[i,j] = calculate_alpha_A(C, brick_alpha, brick_density)
+            alpha_B[i,j] = calculate_alpha_B(C, brick_alpha)
 
-        elif (i == 1 or i == N_2 - 2) and (j > 0 and j < N_2 -1):
-            k_field[i, j] = 3
-            alpha_field[i, j] = MATERIALS["brick"]
 
-        elif (j == 1 or j == N_2 - 2) and (i > 0 and i < N_2 -1):
-            k_field[i, j] = 3
-            alpha_field[i, j] = MATERIALS["brick"]
 
-    # wymiary przeszkód
-    r_x1, r_x2 = 100, 200
-    r_y1, r_y2 = 100, 200
+    # tworzymy sciany pml
+    for i, j in alpha_A:
+        dist_x = 0.0
+        if i < pml_thick:
+            dist_x = ti.cast(pml_thick - i, ti.f32) / pml_thick
+        elif i >= N - pml_thick:
+            dist_x = ti.cast(i - (N - pml_thick) + 1, ti.f32) / pml_thick
 
-    for i,j in k_field:  # przeszkoda
-        if i > r_x1 and i < r_x2 and j > r_y1 and j < r_y2:
-            k_field[i, j] = 0
-            alpha_field[i, j] = 0.0
+        dist_y = 0.0
+        if j < pml_thick:
+            dist_y = ti.cast(pml_thick - j, ti.f32) / pml_thick
+        elif j >= N - pml_thick:
+            dist_y = ti.cast(j - (N - pml_thick) + 1, ti.f32) / pml_thick
 
-        elif (i == r_x1 and j == r_y1) or \
-                (i == r_x1 and j == r_y2) or \
-                (i == r_x2 and j == r_y1) or \
-                (i == r_x2 and j == r_y2):
-            k_field[i, j] = 4
-            alpha_field[i, j] = MATERIALS["wooden_bench"]
+        dist_final = ti.max(dist_x, dist_y)
+        if dist_final > 0.0:
+            alpha_val = alpha_max * (dist_final ** 2)
+            alpha_field[i,j] = alpha_val
+            alpha_A[i, j] = calculate_alpha_A(C, alpha_val, air_density)
+            alpha_B[i, j] = calculate_alpha_B(C,alpha_val)
 
-        elif (i == r_x1 or i == r_x2) and (j > r_y1 and j < r_y2):
-            k_field[i, j] = 3
-            alpha_field[i, j] = MATERIALS["wooden_bench"]
-
-        elif (j == r_y1 or j == r_y2) and (i > r_x1 and i < r_x2):
-            k_field[i, j] = 3
-            alpha_field[i, j] = MATERIALS["wooden_bench"]
 
     for i,j in bk_field:
-        k_val = k_field[i, j]
-        beta_val = beta_from_alpha(alpha_field[i, j])
+         k_val = k_field[i, j]
+         beta_val = beta_from_alpha(alpha_field[i, j])
+         bk_field[i, j] = (4.0 - float(k_val)) * COURANT * beta_val
 
-        bk_field[i, j] = (4.0 - float(k_val)) * COURANT * beta_val / 2.0
+
 
 @ti.func
 def beta_from_alpha(alpha):
@@ -81,16 +100,20 @@ def beta_from_alpha(alpha):
 
 @ti.kernel
 def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
-    for i,j in p_now:
-        if k_field[i , j] > 0:
-            k_val = k_field[i,j]
-            bk_val = bk_field[i,j]
-            w1 = (2.0 - float(k_val) * COURANT_SQ) * p_now[i, j]
-            w2 = (bk_val - 1.0) * p_prev[i, j]
-            w3 = COURANT_SQ * (p_now[i + 1, j] + p_now[i - 1, j] + p_now[i, j + 1] + p_now[i, j - 1])
-            p_prev[i, j] = (w1 + w2 + w3) / (1 + bk_val)
-        else:
-            p_prev[i, j] = 0
+    for i,j in ti.ndrange((1, N - 1), (1, N - 1)):
+        # if k_field[i , j] > 0:
+        k_val = k_field[i,j]
+        bk_val = bk_field[i,j]
+        alpha_a = alpha_A[i,j]
+        alpha_b = alpha_B[i,j]
+
+        w1 = 1.0 + bk_val + alpha_a/2 * DT + alpha_b * (DT**2)
+        w2 = COURANT_SQ * (p_now[i + 1, j] + p_now[i - 1, j] + p_now[i, j + 1] + p_now[i, j - 1])
+        w3 = (2.0 - k_val * COURANT_SQ) * p_now[i,j]
+        w4 = (bk_val - 1.0 - alpha_a/2) * p_prev[i,j]
+
+        p_prev[i, j] = (1.0 / w1) * (w2 + w3 + w4)
+
 
     #ZRODLO
     pulse = AMPLITUDE * ti.exp(- ((DT*steps - DT*DELAY_GAUSS)**2) / (2 * SIGMA**2))
@@ -98,9 +121,9 @@ def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
 
 
 def main():
-    gui = ti.GUI("2d - fdtd", res=(N_2, N_2))
+    gui = ti.GUI("2d - fdtd (pml & neumann)", res=(N, N))
     print_config()
-    generation_symulation_map()
+    generate_symulation_map()
     buffers = [p_old, p_curr]
 
     prev_time = time.time()
@@ -109,7 +132,7 @@ def main():
     accumulator = 0
 
     alpha_map = alpha_field.to_numpy()
-    is_wall = alpha_map < 1.0
+    is_wall = alpha_map > 0.001
 
     is_paused = False
     while gui.running:

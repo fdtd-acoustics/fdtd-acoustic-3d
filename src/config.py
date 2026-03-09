@@ -5,10 +5,18 @@ def get_time_step(dimensions, dx, speed, safety_factor):
     courant_limit = 1.0 / math.sqrt(dimensions)
     return (dx / speed) * courant_limit * safety_factor
 
+#PML
+pml_thick = 20
+alpha_max = 0.15
+
 # Parametry srodowiska
-C = 343.0   # predkosc [m/s]
 SIZE_M = 20.0  # rozmiar [m]
 DIM = 2  # 2D
+
+
+C = 343.0   # predkosc [m/s]
+
+
 
 # Parametry zrodla
 FREQ_MAX = 1000.0 # maksymalna czestotliwpsc fali [Hz]
@@ -24,12 +32,12 @@ WAVELENGTH = C / FREQ_MAX    # dlugosc fali [m]
 DX = WAVELENGTH / NODES_PER_WAVELENGTH   # krok odleglosciowy [m]
 
 # Obliczanie liczby wezlow
-N = int(SIZE_M / DX)     # ilosc punktow w jednym wymiarze
-N_2 = N + 2 # dodajemy po jednym punckie na kazda strone do obliczen
+N = int(SIZE_M / DX) + pml_thick*2    # ilosc punktow w jednym wymiarze
+#N_2 = N + 2 # dodajemy po jednym punckie na kazda strone do obliczen
 
 # Polozenie zrodla
-SRC_X = N_2 // 2
-SRC_Y = N_2 // 2
+SRC_X = N // 2
+SRC_Y = N // 2
 
 # Wspolczynnik bezpieczenstwa
 SAFETY_FACTOR = 0.99
@@ -43,13 +51,20 @@ DT = get_time_step(DIM, DX, C, SAFETY_FACTOR)
 
 # wspolczynniki alfa dla materiałów przy fali o czestotliowsci 500 HZ
 # https://www.acoustic-supplies.com/absorption-coefficient-chart/
-MATERIALS = {
-    "brick": 0.03, # brick(natural)
-    "wooden_bench": 0.76 # Benches (wooden, fully occupied)
+# MATERIALS = {
+#     "brick": 0.03, # brick(natural)
+#     "wooden_bench": 0.76 # Benches (wooden, fully occupied)
+# }
+MATERIAL_PROPS = {
+    "air" : (0.0, 1.21),
+    "brick": (0.03,1800.0), # brick(natural)
+    "wooden_bench": (0.76, 950.0) # Benches (wooden, fully occupied)
 }
 
 # Parametry animacji
 frame_duration = 0.02 # czas trwania jednej klatki wizualizacji [s]
+
+
 
 
 def print_config():
