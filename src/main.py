@@ -57,17 +57,17 @@ def generate_symulation_map():
         alpha_B[i, j] = 0.0
 
         count = 0
-        if i > 0: count += 1
-        if i < N - 1: count += 1
-        if j > 0: count += 1
-        if j < N - 1: count += 1
+        if i > 1: count += 1
+        if i < N - 2: count += 1
+        if j > 1: count += 1
+        if j < N - 2: count += 1
         k_field[i, j] = count
 
     for i,j in alpha_A: # sciany
         if i == PML_THICK or i == N - PML_THICK - 1 or j == PML_THICK or j == N - PML_THICK - 1:
-            alpha_field[i,j] = brick_alpha
-            alpha_A[i,j] = calculate_alpha_A(C, brick_alpha, brick_density)
-            alpha_B[i,j] = calculate_alpha_B(C, brick_alpha)
+            alpha_field[i,j] = 0.0 #brick_alpha
+            alpha_A[i,j] = 0.0 #calculate_alpha_A(C, brick_alpha, brick_density)
+            alpha_B[i,j] = 0.0 # calculate_alpha_B(C, brick_alpha)
 
     # tworzymy sciany pml
     for i, j in alpha_A:
@@ -92,9 +92,13 @@ def generate_symulation_map():
 
 
     for i,j in bk_field:
-         k_val = k_field[i, j]
-         beta_val = beta_from_alpha(alpha_field[i, j])
-         bk_field[i, j] = (4.0 - float(k_val)) * COURANT * beta_val
+        k_val = k_field[i, j]
+        beta_val = beta_from_alpha(alpha_field[i, j])
+        bk_field[i, j] = (4.0 - float(k_val)) * COURANT * beta_val
+        if i == 0 or i == N - 1 or j == 0 or j == N - 1:
+            p_curr[i,j] = 0.0
+            p_old[i,j] = 0.0
+
 
 
 
@@ -109,15 +113,13 @@ def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
         w1 = 1.0 + bk_val + alpha_a/2 * DT + alpha_b * (DT**2)
         w2 = COURANT_SQ * (p_now[i + 1, j] + p_now[i - 1, j] + p_now[i, j + 1] + p_now[i, j - 1])
         w3 = (2.0 - k_val * COURANT_SQ) * p_now[i,j]
-        w4 = (bk_val - 1.0 - alpha_a/2) * p_prev[i,j]
+        w4 = (bk_val - 1.0 - (alpha_a / 2.0) * DT) * p_prev[i,j]
 
         p_prev[i, j] = (1.0 / w1) * (w2 + w3 + w4)
 
     #ZRODLO
     pulse = AMPLITUDE * ti.exp(- ((DT*steps - DT*DELAY_GAUSS)**2) / (2 * SIGMA**2))
     p_prev[SRC_X, SRC_Y] += pulse # soft source
-
-
 
 
 def main():
