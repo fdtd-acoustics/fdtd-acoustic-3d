@@ -1,3 +1,5 @@
+import math
+
 import taichi as ti
 from . import config
 
@@ -15,26 +17,30 @@ class Simulation:
         self.plane_v_2 = ti.Vector.field(3, dtype=ti.f32, shape=config.N * config.N)
         self.plane_c_2 = ti.Vector.field(3, dtype=ti.f32, shape=config.N * config.N)
 
+
+
+    # @ti.kernel
+    # def update_wave(self):
+    #     self.t[None] += config.DELTA_TIME
+    #     current_t = self.t[None]
+    #     source = ti.Vector([config.SOURCE_POS[0], config.SOURCE_POS[1], config.SOURCE_POS[2]])
+    #
+    #     for i, j, k in ti.ndrange(config.N, config.N, config.N):
+    #         pos = ti.Vector([float(i), float(j), float(k)])
+    #         dist = (pos - source).norm()
+    #
+    #         self.pressure_field[i, j, k] = (ti.sin(current_t - dist * 0.5) / (dist * 0.1 + 1.0)) * 2.0
+    #
+
+
     @ti.kernel
-    def update_wave(self):
-        self.t[None] += config.DELTA_TIME
-        current_t = self.t[None]
-        source = ti.Vector([config.SOURCE_POS[0], config.SOURCE_POS[1], config.SOURCE_POS[2]])
-
-        for i, j, k in ti.ndrange(config.N, config.N, config.N):
-            pos = ti.Vector([float(i), float(j), float(k)])
-            dist = (pos - source).norm()
-
-            self.pressure_field[i, j, k] = (ti.sin(current_t - dist * 0.5) / (dist * 0.1 + 1.0)) * 2.0
-
-    @ti.kernel
-    def update_planes(self, slice_y: ti.i32, slice_z: ti.i32):
+    def update_planes(self, slice_y: ti.i32, slice_z: ti.i32, pressure_field: ti.template()):
         for i, k in ti.ndrange(config.N, config.N):
             idx = i * config.N + k
 
             # Horizontal Slice
             self.plane_v_1[idx] = ti.Vector([float(i), float(slice_y), float(k)])
-            pres1 = self.pressure_field[i, slice_y, k]
+            pres1 = pressure_field[i, slice_y, k]
 
             # Horizontal Slice color mapping
             color = ti.Vector([1.0, 1.0, 1.0])
@@ -48,7 +54,7 @@ class Simulation:
 
             # Vertical Slice
             self.plane_v_2[idx] = ti.Vector([float(i), float(k), float(slice_z)])
-            pres2 = self.pressure_field[i, k, slice_z]
+            pres2 = pressure_field[i, k, slice_z]
 
             # Vertical Slice color mapping
             color = ti.Vector([1.0, 1.0, 1.0])

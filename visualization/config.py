@@ -24,4 +24,17 @@ LIGHT_COLOR = (1, 1, 1)
 AMBIENT_COLOR = (1.0, 1.0, 1.0)
 
 # Temporary (just for test visualisation)
-SOURCE_POS = (N/2 * VOXEL_DISTANCE, N/2 * VOXEL_DISTANCE, N/2 * VOXEL_DISTANCE)
+#SOURCE_POS = (N/2 * VOXEL_DISTANCE, N/2 * VOXEL_DISTANCE, N/2 * VOXEL_DISTANCE)
+
+SOURCE_POS = (N//2, N//2, N//2 )
+#-------------- FDTD -----------------------------
+FREQ_MAX = 1000.0 # maksymalna czestotliwpsc fali [Hz]
+AMPLITUDE = 10.0
+C = 343.0
+SIZE_M = 5.0
+PML_THICK = 20
+NODES_PER_WAVELENGTH = 10
+alpha_max = 0.15 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
+DIM = 3  # 2D
+safety_factor = 0.99
+# --------------------------------------------
