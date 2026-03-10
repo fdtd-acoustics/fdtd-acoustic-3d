@@ -1,5 +1,3 @@
-from pydoc import describe
-
 import taichi as ti
 from config import N,COURANT_SQ, MATERIAL_PROPS,C,COURANT, SIGMA, AMPLITUDE, SRC_X, SRC_Y, DT, FRAME_DURATION, DELAY_GAUSS, print_config, ALPHA_MAX, PML_THICK
 import numpy as np
@@ -7,13 +5,7 @@ import time
 
 ti.init(arch=ti.gpu)
 
-# p_old = ti.field(ti.f32, shape=(N_2, N_2)) # macierz ciśnień, do niej wsadzane są najnowsze wartosci
-# p_curr = ti.field(ti.f32, shape=(N_2, N_2))
-
-#k_field = ti.field(dtype=ti.i32, shape=(N_2, N_2)) #ilosc sasiadow
-#alpha_field = ti.field(dtype=ti.f32, shape=(N_2, N_2)) # współczynniki pochlaniania
-#bk_field = ti.field(dtype=ti.f32, shape=(N_2, N_2)) # macierz bk
-
+#macierze
 p_old = ti.field(ti.f32, shape=(N, N)) # macierz ciśnień, do niej wsadzane są najnowsze wartosci
 p_curr = ti.field(ti.f32, shape=(N, N)) # macierz ciśnień
 
@@ -24,6 +16,7 @@ alpha_field = ti.field(dtype=ti.f32, shape=(N, N)) # macierz wspólczynnikow poc
 alpha_A = ti.field(dtype=ti.f32, shape=(N , N)) # macierz tlumienia stratnego
 alpha_B = ti.field(dtype=ti.f32, shape=(N , N)) # macierz tlumienia lepkiego
 
+# materialy
 brick_alpha, brick_density = MATERIAL_PROPS["brick"]
 air_alpha, air_density = MATERIAL_PROPS["air"]
 
@@ -64,10 +57,14 @@ def generate_symulation_map():
         k_field[i, j] = count
 
     for i,j in alpha_A: # sciany
-        if i == PML_THICK or i == N - PML_THICK - 1 or j == PML_THICK or j == N - PML_THICK - 1:
+        if i == N - PML_THICK - 1 or j == PML_THICK or j == N - PML_THICK - 1:
             alpha_field[i,j] = 0.0 #brick_alpha
             alpha_A[i,j] = 0.0 #calculate_alpha_A(C, brick_alpha, brick_density)
             alpha_B[i,j] = 0.0 # calculate_alpha_B(C, brick_alpha)
+        if i == PML_THICK:
+            alpha_field[i, j] = brick_alpha
+            alpha_A[i, j] = calculate_alpha_A(C, brick_alpha, brick_density)
+            alpha_B[i, j] = calculate_alpha_B(C, brick_alpha)
 
 
     # tworzymy sciany pml
