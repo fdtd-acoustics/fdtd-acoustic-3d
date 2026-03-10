@@ -29,7 +29,7 @@ AMBIENT_COLOR = (1.0, 1.0, 1.0)
 SOURCE_POS = (N//2, N//2, N//2 )
 #-------------- FDTD -----------------------------
 FREQ_MAX = 1000.0 # maksymalna czestotliwpsc fali [Hz]
-AMPLITUDE = 10.0
+AMPLITUDE = 5000.0
 C = 343.0
 SIZE_M = 5.0
 PML_THICK = 20
@@ -38,3 +38,4 @@ alpha_max = 0.15 # maksymalne tlumienie wystepujace na samym brzegu domeny oblic
 DIM = 3  # 2D
 safety_factor = 0.99
 # --------------------------------------------
+FRAME_DURATION = 0.02

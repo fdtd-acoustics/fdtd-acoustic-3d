@@ -1,3 +1,5 @@
+import time
+
 import taichi as ti
 
 from visualization import Simulation, SceneRenderer,config
@@ -14,8 +16,8 @@ def main():
     # ustawiam N zalezne od rozmiaru pomieszczenia(lepiej zmieniac SIZE_M niz N)
     config.N = int(config.SIZE_M / dx) + config.PML_THICK*2
 
-
-    source = Source(config.SOURCE_POS[0], config.SOURCE_POS[1], config.SOURCE_POS[2], config.FREQ_MAX, config.AMPLITUDE)
+    SOURCE_POS = (config.N // 2, config.N // 2, config.N // 2)
+    source = Source(SOURCE_POS[0], SOURCE_POS[1], SOURCE_POS[2], config.FREQ_MAX, config.AMPLITUDE)
     fdtd_sim = FDTD_Simulation(dx, config.N, config.C, source)
 
     sim = Simulation()
@@ -26,6 +28,8 @@ def main():
     slice_y = config.N // 2
     slice_z = config.N // 2
 
+    prev_time = time.time()
+    accumulator = 0
 
     while renderer.is_running:
         gui = renderer.window.get_gui()
@@ -33,8 +37,14 @@ def main():
             slice_y = gui.slider_int("Horizontal Slice", slice_y, 0, config.N - 1)
             slice_z = gui.slider_int("Vertical Slice", slice_z, 0, config.N - 1)
 
+        now = time.time()
+        delta_real_time = now - prev_time
+        prev_time = now
+        accumulator += delta_real_time
+        if (accumulator >= config.FRAME_DURATION):
+            fdtd_sim.update()
+            accumulator = 0
 
-        fdtd_sim.update()
         current_pressure = fdtd_sim.get_current_pressure()
         #sim.update_wave()
 
