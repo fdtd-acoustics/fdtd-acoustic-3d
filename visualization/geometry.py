@@ -1,6 +1,7 @@
 import taichi as ti
 from . import config
 
+"""
 @ti.data_oriented
 class CubeGeometry:
     def __init__(self):
@@ -55,3 +56,26 @@ class CubeGeometry:
             self.indices[i * 6 + 3] = offset + 0
             self.indices[i * 6 + 4] = offset + 2
             self.indices[i * 6 + 5] = offset + 3
+"""
+
+@ti.data_oriented
+class PlaneGeometry:
+    def __init__(self):
+        self.n = config.N
+        self.indices = ti.field(dtype=ti.i32, shape=(config.N - 1) * (config.N - 1) * 6)
+        self.init_mesh()
+
+    @ti.kernel
+    def init_mesh(self):
+        for i, j in ti.ndrange(self.n - 1, self.n - 1):
+            idx = (i * (self.n - 1) + j) * 6
+            v0 = i * self.n + j
+            v1 = (i + 1) * self.n + j
+            v2 = i * self.n + (j + 1)
+            v3 = (i + 1) * self.n + (j + 1)
+            self.indices[idx + 0] = v0
+            self.indices[idx + 1] = v1
+            self.indices[idx + 2] = v2
+            self.indices[idx + 3] = v2
+            self.indices[idx + 4] = v1
+            self.indices[idx + 5] = v3

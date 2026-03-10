@@ -1,9 +1,9 @@
 ## Simulation settings
-N = 64 # Dla testów polecam zmniejszenie na 32 czy nawet 16
+N = 256
 MAX_VOXELS = N**3
 VOXEL_WIDTH = 1
 VOXEL_DISTANCE = 1
-DELTA_TIME = 0.05
+DELTA_TIME = 0.1
 PARTICLE_RADIUS = 1
 PRESSURE_TRESHOLD = 0.25 # Noise Gate, nie wyświetlamy powietrza z ciśnieniem poniżej abs(0.25)
 
@@ -15,10 +15,11 @@ MEMORY_LIMIT_GB = 2
 # Camera settings
 CAMERA_POS_X, CAMERA_POS_Y, CAMERA_POS_Z = N*1.5, N*1.5, N*1.5
 CAMERA_LOOKAT_X, CAMERA_LOOKAT_Y, CAMERA_LOOKAT_Z = 0, 0, 0
+CAMERA_SPEED = 0.5
 
 # Colors
 CUBE_COLOR = (0.5, 0.5, 0.5)
-BG_COLOR = (1.0, 1.0, 1.0)
+BG_COLOR = (0.95, 0.95, 0.95)
 LIGHT_COLOR = (1, 1, 1)
 AMBIENT_COLOR = (1.0, 1.0, 1.0)
 
