@@ -1,5 +1,5 @@
 ## Simulation settings
-N = 256
+N = 185
 MAX_VOXELS = N**3
 VOXEL_WIDTH = 1
 VOXEL_DISTANCE = 1
@@ -13,7 +13,7 @@ FPS_LIMIT = 60
 MEMORY_LIMIT_GB = 2
 
 # Camera settings
-CAMERA_POS_X, CAMERA_POS_Y, CAMERA_POS_Z = N*1.5, N*1.5, N*1.5
+CAMERA_POS_X, CAMERA_POS_Y, CAMERA_POS_Z = 2,2,2 # tu zmienile,
 CAMERA_LOOKAT_X, CAMERA_LOOKAT_Y, CAMERA_LOOKAT_Z = 0, 0, 0
 CAMERA_SPEED = 0.5
 
@@ -29,7 +29,7 @@ AMBIENT_COLOR = (1.0, 1.0, 1.0)
 SOURCE_POS = (N//2, N//2, N//2 )
 #-------------- FDTD -----------------------------
 FREQ_MAX = 1000.0 # maksymalna czestotliwpsc fali [Hz]
-AMPLITUDE = 5000.0
+AMPLITUDE = 1000.0
 C = 343.0
 SIZE_M = 5.0
 PML_THICK = 20

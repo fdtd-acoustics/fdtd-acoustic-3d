@@ -9,7 +9,7 @@ class SceneRenderer:
         self.scene = self.window.get_scene()
         self.camera = ti.ui.Camera()
         self.camera.position(config.CAMERA_POS_X, config.CAMERA_POS_Y, config.CAMERA_POS_Z)
-        self.camera.lookat(0, 0, 0)
+        self.camera.lookat(0.5, 0.5, 0.5) # tu zmienilem
 
     def render_frame(self, simulation, plane_geo):
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
