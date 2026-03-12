@@ -32,10 +32,11 @@ class SourceManager:
 
     @ti.kernel
     def update_sources(self, p_field: ti.template(), steps: ti.i32, dt:ti.f32):
-        for i in range(self.count[None]):
-            s = self.data[i]
-            val = s.amp * ti.exp(- ((dt * steps - dt * s.delay_t) ** 2) / (2 * s.sigma ** 2))
-            p_field[s.pos[0],s.pos[1], s.pos[2]] += val
+        if steps < 10: #tymczasowo dodalem, tylko przez 10 krokow zrodlo dziala
+            for i in range(self.count[None]):
+                s = self.data[i]
+                val = s.amp * ti.exp(- ((dt * steps - dt * s.delay_t) ** 2) / (2 * s.sigma ** 2))
+                p_field[s.pos[0],s.pos[1], s.pos[2]] += val
 
     def get_max_freq(self) -> float:
         max_f = 0.0

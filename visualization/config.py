@@ -37,7 +37,8 @@ alpha_max = 0.15 # maksymalne tlumienie wystepujace na samym brzegu domeny oblic
 DIM = 3  # 2D
 SAFETY_FACTOR = 0.99
 # --------------------------------------------
-FRAME_DURATION = 0.02
+FRAME_DURATION = 0.02  # jeden krok trwa 0.02 sekundy a jeden krok to np. 0.00005s czasu rzeczywistego
+#czyli liczac 60s / 0.02s to daje 3000 krokow(tyle zobaczymy przez minute),  3000 * 0.00005 to 0.171s czyli przez minute jak ogladamy widzimy 0.171 sekundy prawdziwego czasu
 
 DEFAULT_ALPHA = 0.0
 DEFAULT_DENSITY = 1.21
