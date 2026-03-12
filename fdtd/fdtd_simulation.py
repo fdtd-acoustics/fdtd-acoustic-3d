@@ -2,40 +2,43 @@ import math
 
 import taichi as ti
 from visualization import config
-from .source import Source
+from .source_manager import SourceManager
+from .receiver_manager import ReceiverManager
+from typing import List
 
-
-def get_time_step(dimensions, dx, speed, safety_factor):
-    courant_limit = 1.0 / math.sqrt(dimensions)
-    return (dx / speed) * courant_limit * safety_factor
 
 
 @ti.data_oriented
 class FDTD_Simulation:
-    def __init__(self,DX: float, N: int, c: float,source_object: Source):
-        self.source = source_object
-        wavelength = c / self.source.freq
+    def __init__(self, c: float, dx: float, dt:float, sources: SourceManager,
+                 receivers: ReceiverManager, material_core: ti.template()):
+        self.sources = sources
+        self.receivers = receivers
         self.C = c
-        self.DX = DX
-        self.N = N
+        self.dx= dx
+        self.dt = dt
 
-        self.courant = (1.0 / math.sqrt(config.DIM)) * config.safety_factor
+        self.courant = (1.0 / math.sqrt(config.DIM)) * config.SAFETY_FACTOR
         self.courant_sq = self.courant ** 2
-        self.dt = get_time_step(config.DIM, self.DX, c, config.safety_factor)
+
+        self.Nx = material_core.shape[0] + config.PML_THICK*2
+        self.Ny = material_core.shape[1] + config.PML_THICK*2
+        self.Nz = material_core.shape[2] + config.PML_THICK*2
+
         self.steps = 0
 
-        self.alpha_field = ti.field(dtype=ti.f32, shape=(self.N, self.N, self.N)) # pozniej jako parametr
-        self.alpha_A = ti.field(dtype=ti.f32, shape=(self.N, self.N, self.N))
-        self.alpha_B = ti.field(dtype=ti.f32, shape=(self.N, self.N, self.N))
+        self.alpha_A = ti.field(dtype=ti.f32, shape=(self.Nx, self.Ny, self.Nz))
+        self.alpha_B = ti.field(dtype=ti.f32, shape=(self.Nx, self.Ny, self.Nz))
 
-        self.k_field = ti.field(dtype=ti.i32, shape=(self.N, self.N, self.N))
-        self.bk_field = ti.field(dtype=ti.f32, shape=(self.N, self.N, self.N))
-        self.p_prev = ti.field(ti.f32, shape=(self.N, self.N, self.N))  # macierz ciśnień, do niej wsadzane są najnowsze wartosci
-        self.p_curr = ti.field(ti.f32, shape=(self.N, self.N, self.N))  # macierz ciśnień
+        self.k_field = ti.field(dtype=ti.i32, shape=(self.Nx, self.Ny, self.Nz))
+        self.bk_field = ti.field(dtype=ti.f32, shape=(self.Nx, self.Ny, self.Nz))
+
+        self.p_prev = ti.field(ti.f32, shape=(self.Nx, self.Ny, self.Nz))  # macierz ciśnień, do niej wsadzane są najnowsze wartosci
+        self.p_curr = ti.field(ti.f32, shape=(self.Nx, self.Ny, self.Nz))  # macierz ciśnień
 
         self.buffers = [self.p_prev, self.p_curr]
 
-        self.generate_simulation_map()
+        self.prepare_simulation_data(material_core)
 
     @ti.func
     def calculate_alpha_A(self, c: ti.f32, alpha: ti.f32, density: ti.f32) -> ti.f32:
@@ -58,68 +61,81 @@ class FDTD_Simulation:
 
         return Beta
 
-    @ti.kernel
-    def generate_simulation_map(self):
-        for i, j, k in self.alpha_field:  # domyslnie wszedzie 4 sąsiadów i otwarta przestrzen
-            self.alpha_field[i, j, k] = 0.0
-            self.alpha_A[i, j, k] = 0.0
-            self.alpha_B[i, j, k] = 0.0
 
+    @ti.kernel
+    def prepare_simulation_data(self, material_core: ti.template()):
+        for i, j, k in ti.ndrange(self.Nx, self.Ny, self.Nz):
+            # ile sasiadow posiada punkt
             count = 0
             if i > 1: count += 1
-            if i < self.N - 2: count += 1
+            if i < self.Nx - 2: count += 1
             if j > 1: count += 1
-            if j < self.N - 2: count += 1
+            if j < self.Ny - 2: count += 1
             if k > 1: count += 1
-            if k < self.N - 2: count += 1
+            if k < self.Nz - 2: count += 1
             self.k_field[i, j, k] = count
 
-        for i, j, k in self.alpha_A:  # sciany
-            if (i == config.PML_THICK or i == self.N - config.PML_THICK - 1 or j == config.PML_THICK or
-                    j == self.N - config.PML_THICK - 1 or k == config.PML_THICK or k == self.N - config.PML_THICK - 1):
-                self.alpha_field[i, j, k] = 0 #0.03  # brick_alpha  "brick": (0.03,1800.0),
-                self.alpha_A[i, j, k] = 0 #self.calculate_alpha_A(self.C, 0.03, 1800.0)
-                self.alpha_B[i, j, k] = 0 #self.calculate_alpha_B(self.C, 0.03)
+            alpha_val = config.DEFAULT_ALPHA
+            density_val = config.DEFAULT_DENSITY
 
-        # tworzymy sciany pml
-        for i, j, k in self.alpha_A:
-            dist_x = 0.0
-            if i < config.PML_THICK:
-                dist_x = ti.cast(config.PML_THICK - i, ti.f32) / config.PML_THICK
-            elif i >= self.N - config.PML_THICK:
-                dist_x = ti.cast(i - (self.N - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+            if (i >= config.PML_THICK and i < self.Nx - config.PML_THICK and
+                    j >= config.PML_THICK and j < self.Ny - config.PML_THICK and
+                    k >= config.PML_THICK and k < self.Nz - config.PML_THICK):
 
-            dist_y = 0.0
-            if j < config.PML_THICK:
-                dist_y = ti.cast(config.PML_THICK - j, ti.f32) / config.PML_THICK
-            elif j >= self.N - config.PML_THICK:
-                dist_y = ti.cast(j - (self.N - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+                ii = i - config.PML_THICK
+                jj = j - config.PML_THICK
+                kk = k - config.PML_THICK
 
-            dist_z = 0.0
-            if k < config.PML_THICK:
-                dist_z = ti.cast(config.PML_THICK - k, ti.f32) / config.PML_THICK
-            elif k >= self.N - config.PML_THICK:
-                dist_z = ti.cast(k - (self.N - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+                mat_data = material_core[ii, jj, kk]
+                alpha_val = mat_data[0]
+                density_val = mat_data[1]
 
-            dist_final = ti.max(dist_x, dist_y, dist_z)
-            if dist_final > 0.0:
-                alpha_val = config.alpha_max * (dist_final ** 3)
-                self.alpha_field[i, j, k] = alpha_val
-                self.alpha_A[i, j, k] = self.calculate_alpha_A(self.C, alpha_val, 1.21) # gestosc powietrza
-                self.alpha_B[i, j, k] = self.calculate_alpha_B(self. C, alpha_val)
+                self.alpha_A[i, j, k] = self.calculate_alpha_A(self.C, alpha_val, density_val)
+                self.alpha_B[i, j, k] = self.calculate_alpha_B(self.C, alpha_val)
 
-        for i, j, k in self.bk_field:
+            else:
+                #PML
+                dist_x = 0.0
+                if i < config.PML_THICK:
+                    dist_x = ti.cast(config.PML_THICK - i, ti.f32) / config.PML_THICK
+                elif i >= self.Nx - config.PML_THICK:
+                    dist_x = ti.cast(i - (self.Nx - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+
+                dist_y = 0.0
+                if j < config.PML_THICK:
+                    dist_y = ti.cast(config.PML_THICK - j, ti.f32) / config.PML_THICK
+                elif j >= self.Ny - config.PML_THICK:
+                    dist_y = ti.cast(j - (self.Ny - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+
+                dist_z = 0.0
+                if k < config.PML_THICK:
+                    dist_z = ti.cast(config.PML_THICK - k, ti.f32) / config.PML_THICK
+                elif k >= self.Nz - config.PML_THICK:
+                    dist_z = ti.cast(k - (self.Nz - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+
+                dist_final = ti.max(dist_x, dist_y, dist_z)
+                if dist_final > 0.0:
+                    alpha_val = config.alpha_max * (dist_final ** 3)
+                    self.alpha_A[i, j, k] = self.calculate_alpha_A(self.C, alpha_val, density_val)  # gestosc powietrza
+                    self.alpha_B[i, j, k] = self.calculate_alpha_B(self.C, alpha_val)
+
             k_val = self.k_field[i, j, k]
-            beta_val = self.beta_from_alpha(self.alpha_field[i, j, k])
-            self.bk_field[i, j, k] = (6.0 - float(k_val)) * self.courant * beta_val
-            if i == 0 or i == self.N - 1 or j == 0 or j == self.N - 1 or k == 0 or k == self.N - 1:
+            beta_val = self.beta_from_alpha(alpha_val)
+
+            self.bk_field[i, j, k] = (6.0 - ti.cast(k_val, ti.f32)) * self.courant * beta_val
+
+            # brzegi maja zawsze cisnienie 0
+            if i == 0 or i == self.Nx - 1 or j == 0 or j == self.Ny - 1 or k == 0 or k == self.Nz - 1:
                 self.p_curr[i, j, k] = 0.0
                 self.p_prev[i, j, k] = 0.0
 
 
+
+
+
     @ti.kernel
     def step(self, p_prev: ti.template(), p_curr: ti.template(), steps: ti.i32):
-        for i, j, k in ti.ndrange((1, self.N - 1), (1, self.N - 1),(1, self.N - 1)):
+        for i, j, k in ti.ndrange((1, self.Nx - 1), (1, self.Ny - 1),(1, self.Nz - 1)):
             k_val = self.k_field[i, j, k]
             bk_val = self.bk_field[i, j, k]
             alpha_a = self.alpha_A[i, j, k]
@@ -133,17 +149,15 @@ class FDTD_Simulation:
             p_prev[i, j, k] = (1.0 / w1) * (w2 + w3 + w4)
 
 
-        # ZRODLO
-        pulse = self.source.get_pulse(steps, self.dt)
-        self.p_prev[self.source.x, self.source.y, self.source.z] += pulse  # soft source
-        print(f"{self.p_prev[self.source.x, self.source.y, self.source.z]}")
-
     def update(self):
-        self.steps += 1
         p_past = self.buffers[self.steps % 2]
         p_present = self.buffers[(self.steps + 1) % 2]
 
         self.step(p_past, p_present, self.steps)
+        self.sources.update_sources(p_past, self.steps, self.dt) # ZRODLO
+        self.receivers.update_receivers(p_past, self.steps) # MIKROFONY
+        self.steps += 1
+
 
     def get_current_pressure(self):
         return self.buffers[self.steps % 2]

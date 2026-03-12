@@ -1,6 +1,6 @@
 ## Simulation settings
-N = 185
-MAX_VOXELS = N**3
+N = 185  # nieuzywane
+MAX_VOXELS = N**3   #zmienanie w main
 VOXEL_WIDTH = 1
 VOXEL_DISTANCE = 1
 DELTA_TIME = 0.1
@@ -31,11 +31,17 @@ SOURCE_POS = (N//2, N//2, N//2 )
 FREQ_MAX = 1000.0 # maksymalna czestotliwpsc fali [Hz]
 AMPLITUDE = 1000.0
 C = 343.0
-SIZE_M = 5.0
 PML_THICK = 20
 NODES_PER_WAVELENGTH = 10
 alpha_max = 0.15 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
 DIM = 3  # 2D
-safety_factor = 0.99
+SAFETY_FACTOR = 0.99
 # --------------------------------------------
 FRAME_DURATION = 0.02
+
+DEFAULT_ALPHA = 0.0
+DEFAULT_DENSITY = 1.21
+
+X_METERS = 5.0
+Y_METERS = 5.0
+Z_METERS = 5.0

@@ -1,24 +1,61 @@
 import time
 
 import taichi as ti
-
-from visualization import Simulation, SceneRenderer,config
+import math
+from visualization import Simulation, SceneRenderer, config, MAX_VOXELS
 from visualization import PlaneGeometry
-from fdtd import FDTD_Simulation, Source
+from fdtd import FDTD_Simulation, ReceiverManager, SourceManager
+import test
+
+
+# do liczenia dt
+def get_time_step(dimensions, dx, speed, safety_factor):
+    courant_limit = 1.0 / math.sqrt(dimensions)
+    return (dx / speed) * courant_limit * safety_factor
+
+
 
 def main():
     ti.init(arch=ti.gpu, device_memory_GB=config.MEMORY_LIMIT_GB)
 
-    # to pozniej do wywalenia bedzie
-    wavelength = config.C / config.FREQ_MAX
+    # ustawiamy zrodla
+    source_manager = SourceManager(5)
+    source_manager.add_source(70, 70,70 ,config.FREQ_MAX, config.AMPLITUDE)
+
+
+
+    max_freq = source_manager.get_max_freq()
+    c = config.C # na razie z configa
+
+    wavelength = c / max_freq
     dx = wavelength / config.NODES_PER_WAVELENGTH
 
-    # ustawiam N zalezne od rozmiaru pomieszczenia(lepiej zmieniac SIZE_M niz N)
-    config.N = int(config.SIZE_M / dx) + config.PML_THICK*2
+    x_meters = config.N # na razie z configa
+    y_meters = config.N # na razie z configa
+    z_meters = config.N # na razie z configa
 
-    SOURCE_POS = (config.N // 2, config.N // 2, config.N // 2)
-    source = Source(SOURCE_POS[0], SOURCE_POS[1], SOURCE_POS[2], config.FREQ_MAX, config.AMPLITUDE)
-    fdtd_sim = FDTD_Simulation(dx, config.N, config.C, source)
+    Nx = int(config.X_METERS / dx)
+    Ny = int(config.Y_METERS / dx)
+    Nz = int(config.Z_METERS / dx)
+
+    MAX_VOXELS = Nx**3  # traktujac ze Nx = Ny = Nz
+
+    dt = get_time_step(config.DIM, dx, c, config.SAFETY_FACTOR)
+
+    #tu bedziemy ustawiac ile maksymalnie czasu chcemy nagrywac( rzeczywistych sekund, nie tyle ile bedzie trwala symulacja)
+    # chodzi o to ze bedziemy mogli symulacje odtworzyc 10 razy wolniej niz w rzeczywistosci
+    receiver_seconds = 3.0
+    steps = int(math.ceil(receiver_seconds / dt)) # musi byc int
+
+    # ustawiamy mikrofony
+    receiver_manager = ReceiverManager(5,steps)
+
+    material_core = ti.Vector.field(2, dtype=ti.f32, shape=(Nx, Ny, Nz))
+    test.generate_simulation_map(material_core) # to otrzymamy z wokselizacji
+    # dokladnie to bedziemy musieli za pomoca slownika stworzyc tablice { alpha, density}
+
+
+    fdtd_sim = FDTD_Simulation(c, dx, dt, source_manager, receiver_manager, material_core )
 
     sim = Simulation()
     renderer = SceneRenderer()
