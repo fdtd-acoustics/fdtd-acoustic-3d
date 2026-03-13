@@ -2,6 +2,7 @@ import taichi as ti
 from config import N,COURANT_SQ, MATERIAL_PROPS,C,COURANT, SIGMA, AMPLITUDE, SRC_X, SRC_Y, DT, FRAME_DURATION, DELAY_GAUSS, print_config, ALPHA_MAX, PML_THICK
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 ti.init(arch=ti.gpu)
 
@@ -15,6 +16,8 @@ bk_field = ti.field(dtype=ti.f32, shape=(N, N)) # macierz lokalnej admintacji br
 alpha_field = ti.field(dtype=ti.f32, shape=(N, N)) # macierz wspólczynnikow pochlaniania materialow (potrzebne do wyznaczenia alpha_A oraz alpha_B)
 alpha_A = ti.field(dtype=ti.f32, shape=(N , N)) # macierz tlumienia stratnego
 alpha_B = ti.field(dtype=ti.f32, shape=(N , N)) # macierz tlumienia lepkiego
+
+history = ti.field(dtype=ti.f32, shape=(1, 5000))
 
 # materialy
 brick_alpha, brick_density = MATERIAL_PROPS["brick"]
@@ -42,6 +45,7 @@ def beta_from_alpha(alpha):
     return Beta
 
 
+
 @ti.kernel
 def generate_symulation_map():
     for i,j in alpha_field: # domyslnie wszedzie 4 sąsiadów i otwarta przestrzen
@@ -62,9 +66,9 @@ def generate_symulation_map():
             alpha_A[i,j] = 0.0 #calculate_alpha_A(C, brick_alpha, brick_density)
             alpha_B[i,j] = 0.0 # calculate_alpha_B(C, brick_alpha)
         if i == PML_THICK:
-            alpha_field[i, j] = brick_alpha
-            alpha_A[i, j] = calculate_alpha_A(C, brick_alpha, brick_density)
-            alpha_B[i, j] = calculate_alpha_B(C, brick_alpha)
+            alpha_field[i, j] = 0 #brick_alpha
+            alpha_A[i, j] =  0 # calculate_alpha_A(C, brick_alpha, brick_density)
+            alpha_B[i, j] =  0 #calculate_alpha_B(C, brick_alpha)
 
 
     # tworzymy sciany pml
@@ -91,14 +95,16 @@ def generate_symulation_map():
 
     for i,j in bk_field:
         k_val = k_field[i, j]
-        beta_val = beta_from_alpha(alpha_field[i, j])
-        bk_field[i, j] = (4.0 - float(k_val)) * COURANT * beta_val
-        if i == 0 or i == N - 1 or j == 0 or j == N - 1:
-            p_curr[i,j] = 0.0
-            p_old[i,j] = 0.0
+        # beta_val = beta_from_alpha(alpha_field[i, j])
+        bk_field[i, j] = 0.0
+        # if i < 2 or i >= N - 2 or j < 2 or j >= N - 2:
+        #     bk_field[i, j] = 0.1
 
 
 
+@ti.kernel
+def record_history(steps: int, p_now: ti.template()):
+        history[0, steps] = p_now[40,100]
 
 @ti.kernel
 def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
@@ -115,18 +121,48 @@ def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
 
         p_prev[i, j] = (1.0 / w1) * (w2 + w3 + w4)
 
-    #ZRODLO
-    pulse = AMPLITUDE * ti.exp(- ((DT*steps - DT*DELAY_GAUSS)**2) / (2 * SIGMA**2))
-    p_prev[SRC_X, SRC_Y] += pulse # soft source
+    if steps < 5:
+        #ZRODLO
+        pulse = AMPLITUDE * ti.exp(- ((DT*steps - DT*DELAY_GAUSS)**2) / (2 * SIGMA**2))
+        p_prev[SRC_X, SRC_Y] += pulse # soft source
+
+
+def save_plot(current_step):
+    full_data = history.to_numpy()
+
+    valid_data = full_data[0, :current_step]
+
+    valid_data = valid_data - np.mean(valid_data)
+
+    max_abs = np.max(np.abs(valid_data))
+    if max_abs > 1e-12:
+        valid_data = valid_data / max_abs
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(valid_data)
+    plt.title(f"Acoustic Signal - Step {current_step}")
+    plt.xlabel("Time Steps")
+    plt.ylabel("Normalized Pressure")
+    plt.grid(True, alpha=0.3)
+
+    plt.savefig("chart_test.png")
+    plt.close()
+    print(f"Saved: chart_test.png (samples: {len(valid_data)})")
+
 
 
 def main():
     gui = ti.GUI("2d - fdtd (pml & neumann)", res=(N, N))
     print_config()
+
     generate_symulation_map()
+    for i in range(0,40):
+        print(f"{i, alpha_field[i,100]}")
     buffers = [p_old, p_curr]
 
     prev_time = time.time()
+
+    is_saved = False
 
     steps = 0
     accumulator = 0
@@ -151,6 +187,12 @@ def main():
                 b_old = steps % 2
                 b_curr = (steps + 1) % 2
                 step(buffers[b_old], buffers[b_curr], steps)
+
+                record_history(steps, buffers[b_old])
+
+                if steps >5000 and not is_saved:
+                    save_plot(steps)
+                    is_saved = True
 
             p_np = buffers[b_old].to_numpy()
             max_val = np.abs(p_np).max()

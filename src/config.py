@@ -7,7 +7,7 @@ def get_time_step(dimensions, dx, speed, safety_factor):
 
 #PML
 PML_THICK= 30 # grubosc sciany pml
-ALPHA_MAX = 0.15 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
+ALPHA_MAX = 0.40 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
 
 # Parametry srodowiska
 SIZE_M = 20.0  # rozmiar [m]
@@ -55,7 +55,7 @@ MATERIAL_PROPS = {
 }
 
 # Parametry animacji
-FRAME_DURATION = 0.02 # czas trwania jednej klatki wizualizacji [s]
+FRAME_DURATION = 0.0002 # czas trwania jednej klatki wizualizacji [s]
 
 
 
