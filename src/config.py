@@ -6,8 +6,8 @@ def get_time_step(dimensions, dx, speed, safety_factor):
     return (dx / speed) * courant_limit * safety_factor
 
 #PML
-PML_THICK= 30 # grubosc sciany pml
-ALPHA_MAX = 0.40 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
+PML_THICK= 20 # grubosc sciany pml
+ALPHA_MAX = 0.15 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
 
 # Parametry srodowiska
 SIZE_M = 20.0  # rozmiar [m]

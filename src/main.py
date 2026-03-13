@@ -121,7 +121,7 @@ def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
 
         p_prev[i, j] = (1.0 / w1) * (w2 + w3 + w4)
 
-    if steps < 5:
+    if DT * steps < (DT * DELAY_GAUSS) + 4 * SIGMA:
         #ZRODLO
         pulse = AMPLITUDE * ti.exp(- ((DT*steps - DT*DELAY_GAUSS)**2) / (2 * SIGMA**2))
         p_prev[SRC_X, SRC_Y] += pulse # soft source
