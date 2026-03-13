@@ -84,13 +84,13 @@ def main():
             slice_y = gui.slider_int("Horizontal Slice", slice_y, 0, config.N - 1)
             slice_z = gui.slider_int("Vertical Slice", slice_z, 0, config.N - 1)
 
-        # now = time.time()
-        # delta_real_time = now - prev_time
-        # prev_time = now
-        # accumulator += delta_real_time
-        # if (accumulator >= config.FRAME_DURATION):
-        fdtd_sim.update()
-            # accumulator = 0
+        now = time.time()
+        delta_real_time = now - prev_time
+        prev_time = now
+        accumulator += delta_real_time
+        if (accumulator >= config.FRAME_DURATION):
+            fdtd_sim.update()
+            accumulator = 0
 
         current_pressure = fdtd_sim.get_current_pressure()
         #sim.update_wave()

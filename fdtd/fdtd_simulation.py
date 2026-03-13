@@ -4,8 +4,6 @@ import taichi as ti
 from visualization import config
 from .source_manager import SourceManager
 from .receiver_manager import ReceiverManager
-from typing import List
-
 
 
 @ti.data_oriented
@@ -120,7 +118,8 @@ class FDTD_Simulation:
                     self.alpha_B[i, j, k] = self.calculate_alpha_B(self.C, alpha_val)
 
             k_val = self.k_field[i, j, k]
-            beta_val = self.beta_from_alpha(alpha_val)
+            # beta_val = self.beta_from_alpha(alpha_val) # wczesniej mialem tak, ale raczej zle
+            beta_val = 0
 
             self.bk_field[i, j, k] = (6.0 - ti.cast(k_val, ti.f32)) * self.courant * beta_val
 

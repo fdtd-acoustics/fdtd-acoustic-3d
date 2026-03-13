@@ -33,7 +33,7 @@ AMPLITUDE = 1000.0
 C = 343.0
 PML_THICK = 20
 NODES_PER_WAVELENGTH = 10
-alpha_max = 0.15 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
+alpha_max = 0.2 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
 DIM = 3  # 2D
 SAFETY_FACTOR = 0.99
 # --------------------------------------------
