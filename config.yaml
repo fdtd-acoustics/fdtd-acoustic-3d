@@ -1,0 +1,5 @@
+FDTD:
+  sound_speed = 343.0
+  nodes_per_wavelength = 10
+  dim = 3
+  safety_factor = 0.99
