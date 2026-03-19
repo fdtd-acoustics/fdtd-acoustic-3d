@@ -1,3 +1,5 @@
+#TODO:Maybe zmiana na yaml?
+
 ## Simulation settings
 N = 185  # nieuzywane
 MAX_VOXELS = N**3   #zmienanie w main
@@ -46,3 +48,11 @@ DEFAULT_DENSITY = 1.21
 X_METERS = 5.0
 Y_METERS = 5.0
 Z_METERS = 5.0
+
+# --- paths ---
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).parent.parent
+SCENES_DIR = ROOT_DIR / "scenes"
+SCENES_IN_DIR = SCENES_DIR / "input"
+SCENES_OUT_DIR = SCENES_DIR / "output"
