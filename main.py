@@ -38,10 +38,6 @@ def main():
     wavelength = c / max_freq
     dx = wavelength / config.NODES_PER_WAVELENGTH
 
-    x_meters = config.N # na razie z configa
-    y_meters = config.N # na razie z configa
-    z_meters = config.N # na razie z configa
-
     Nx = int(config.X_METERS / dx)
     Ny = int(config.Y_METERS / dx)
     Nz = int(config.Z_METERS / dx)

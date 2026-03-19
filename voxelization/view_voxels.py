@@ -31,7 +31,7 @@ def show_taichi_3d():
     pos_field.from_numpy(points.astype(np.float32))
     color_field.from_numpy(colors)
 
-    window = ti.ui.Window("Taichi FDTD - Voxel Tester", (1024, 768), fps_limit=120)
+    window = ti.ui.Window("Taichi FDTD - Voxel Tester", (1024, 768), fps_limit=500)
     canvas = window.get_canvas()
     scene = window.get_scene()
     camera = ti.ui.Camera()
