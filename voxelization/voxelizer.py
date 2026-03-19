@@ -3,12 +3,12 @@ from pathlib import Path
 import numpy as np
 import trimesh
 
-from visualization.config import SCENES_IN_DIR, SCENES_OUT_DIR
+from visualization.config import SCENES_MODELS_DIR, SCENES_OUT_DIR
 
 file_name = 'test_room4.obj'
 
 # TODO: Test czy materialy tez sa
-obj_file_path = SCENES_IN_DIR / file_name
+obj_file_path = SCENES_MODELS_DIR / file_name
 
 NX, NY, NZ = 185,185,185
 DX = 0.05 # krok przestrzenny dx w m
