@@ -10,8 +10,8 @@ file_name = 'test_room4.obj'
 # TODO: Test czy materialy tez sa
 obj_file_path = SCENES_IN_DIR / file_name
 
-NX, NY, NZ = 185,185,185
-DX = 0.05 # krok przestrzenny dx w m
+NX, NY, NZ = 145,145,145
+DX = 0.034300000000000004 # krok przestrzenny dx w m
 
 MATERIALS_IDS = {
     "air": 0,

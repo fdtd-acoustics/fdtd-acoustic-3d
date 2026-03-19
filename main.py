@@ -50,7 +50,7 @@ def main():
 
     dt = get_time_step(config.DIM, dx, c, config.SAFETY_FACTOR)
 
-    #tu bedziemy ustawiac ile maksymalnie czasu chcemy nagrywac( rzeczywistych sekund, nie tyle ile bedzie trwala symulacja)
+    # tu bedziemy ustawiac ile maksymalnie czasu chcemy nagrywac( rzeczywistych sekund, nie tyle ile bedzie trwala symulacja)
     # chodzi o to ze bedziemy mogli symulacje odtworzyc 10 razy wolniej niz w rzeczywistosci
     receiver_seconds = 5.0
     receiver_steps = int(math.ceil(receiver_seconds / dt)) # musi byc int
@@ -68,6 +68,7 @@ def main():
     fdtd_sim = FDTD_Simulation(c, dx, dt, source_manager, receiver_manager, material_core )
 
     sim = Simulation()
+    sim.init_voxels(config.SCENES_OUT_DIR / "test_room4.npz")
     renderer = SceneRenderer()
     #geo = CubeGeometry()
     plane_geo = PlaneGeometry()

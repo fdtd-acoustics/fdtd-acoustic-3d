@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import taichi as ti
 from . import config
 
@@ -17,33 +18,52 @@ class Simulation:
         self.plane_v_2 = ti.Vector.field(3, dtype=ti.f32, shape=config.N * config.N)
         self.plane_c_2 = ti.Vector.field(3, dtype=ti.f32, shape=config.N * config.N)
 
+        self.voxels_pos = None
+        self.voxels_color = None
+        self.num_voxels = 0
 
+    def init_voxels(self, file_path):
+        data = np.load(file_path)
+        space_matrix = data['material_core']
 
-    # @ti.kernel
-    # def update_wave(self):
-    #     self.t[None] += config.DELTA_TIME
-    #     current_t = self.t[None]
-    #     source = ti.Vector([config.SOURCE_POS[0], config.SOURCE_POS[1], config.SOURCE_POS[2]])
-    #
-    #     for i, j, k in ti.ndrange(config.N, config.N, config.N):
-    #         pos = ti.Vector([float(i), float(j), float(k)])
-    #         dist = (pos - source).norm()
-    #
-    #         self.pressure_field[i, j, k] = (ti.sin(current_t - dist * 0.5) / (dist * 0.1 + 1.0)) * 2.0
-    #
+        base_mask = space_matrix > 0
+        indices = np.argwhere(base_mask)
+
+        self.num_voxels = len(indices)
+        print(f"===>Prepared {self.num_voxels} voxels to show.")
+
+        if self.num_voxels == 0:
+            return
+
+        #inv_n = 1.0 / config.N
+        #points = indices * inv_n
+
+        points = indices
+
+        colors = np.zeros((self.num_voxels, 3), dtype=np.float32)
+        colors[space_matrix[base_mask] == 1] = [0.5, 0.5, 0.5]  # Gray (wall)
+        colors[space_matrix[base_mask] == 2] = [0.9, 0.7, 0.1]  # Yellow (other material)
+        colors[colors.sum(axis=1) == 0] = [0.7, 0.7, 0.7]
+
+        self.voxels_pos = ti.Vector.field(3, dtype=ti.f32, shape=self.num_voxels)
+        self.voxels_color = ti.Vector.field(3, dtype=ti.f32, shape=self.num_voxels)
+
+        self.voxels_pos.from_numpy(points.astype(np.float32))
+        self.voxels_color.from_numpy(colors)
 
 
     @ti.kernel
     def update_planes(self, slice_y: ti.i32, slice_z: ti.i32, pressure_field: ti.template()):
 
         norm_val = 1.0
-        inv_n = 1.0 / config.N
+        # inv_n = 1.0 / config.N
 
         for i, k in ti.ndrange(config.N, config.N):
             idx = i * config.N + k
 
             # Horizontal Slice
-            self.plane_v_1[idx] = ti.Vector([i * inv_n, slice_y * inv_n, k * inv_n])
+            #self.plane_v_1[idx] = ti.Vector([i * inv_n, slice_y * inv_n, k * inv_n])
+            self.plane_v_1[idx] = ti.Vector([i, slice_y, k])
             pres1 = pressure_field[i, slice_y, k]
 
             p1_norm = ti.math.clamp(pres1 / norm_val, -1.0, 1.0)
@@ -63,7 +83,7 @@ class Simulation:
             self.plane_c_1[idx] = color1
 
             # Vertical Slice
-            self.plane_v_2[idx] = ti.Vector([i * inv_n, k * inv_n, slice_z * inv_n])
+            self.plane_v_2[idx] = ti.Vector([i, k, slice_z])
             pres2 = pressure_field[i, k, slice_z]
 
             p2_norm = ti.math.clamp(pres2 / norm_val, -1.0, 1.0)
