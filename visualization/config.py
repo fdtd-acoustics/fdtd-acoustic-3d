@@ -54,5 +54,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent.parent
 SCENES_DIR = ROOT_DIR / "scenes"
-SCENES_IN_DIR = SCENES_DIR / "input"
+SCENES_MODELS_DIR = SCENES_DIR / "models"
 SCENES_OUT_DIR = SCENES_DIR / "output"
+
+
