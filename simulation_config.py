@@ -57,9 +57,9 @@ class SimulationConfig:
         self.dim = DIM
         self.safety_factor = SAFETY_FACTOR
 
-        npz_filepath = SCENES_OUT_DIR / obj_filepath.split("/")[-1].replace('.obj', '.npz')
+        self.npz_filepath = SCENES_OUT_DIR / obj_filepath.split("/")[-1].replace('.obj', '.npz')
 
-        with np.load(npz_filepath) as data:
+        with np.load(self.npz_filepath) as data:
             self.matrix_3d = data[data.files[0]].astype(np.int32)
 
 

@@ -86,7 +86,7 @@ class MainMenuWindow(tk.Tk):
         self.frame_gauss = ttk.Frame(self.params_container)
         ttk.Label(self.frame_gauss, text="Amplitude:").pack(side=tk.LEFT, padx=(5, 2))
         self.entry_amp = ttk.Entry(self.frame_gauss, width=6)
-        self.entry_amp.insert(0, "1.0")
+        self.entry_amp.insert(0, "1000.0")
         self.entry_amp.pack(side=tk.LEFT)
         ttk.Label(self.frame_gauss, text="Freq (Hz):").pack(side=tk.LEFT, padx=(10, 2))
         self.entry_freq = ttk.Entry(self.frame_gauss, width=6)
