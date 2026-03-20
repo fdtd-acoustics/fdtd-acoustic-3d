@@ -1,10 +1,9 @@
 import math
-import yaml
 import numpy as np
 import taichi as ti
 from fdtd import SourceManager, ReceiverManager, FDTD_Simulation
 from visualization import *
-from visualization.config import  SCENES_OUT_DIR
+from visualization.config import  *
 import trimesh
 
 from voxelization.voxelizer import Voxelizer
@@ -49,21 +48,18 @@ class SimulationConfig:
         self.obj_filepath = obj_filepath
         self.pml_thick = pml_thick
         self.alpha_max = alpha_max
-        self.npz_filepath = SCENES_OUT_DIR / obj_filepath.split("/")[-1].replace('.obj', '.npz')
-
         self.nx = 0
         self.ny = 0
         self.nz = 0
 
-        with open("config.yaml", 'r') as file:
-            self.yaml_data = yaml.safe_load(file)
+        self.sound_speed = C
+        self.nodes_per_wavelength = NODES_PER_WAVELENGTH
+        self.dim = DIM
+        self.safety_factor = SAFETY_FACTOR
 
-        self.c = 343.0
-        self.nodes_per_wavelength = 10
-        self.dim = 3
-        self.safety_factor = 0.95
+        npz_filepath = SCENES_OUT_DIR / obj_filepath.split("/")[-1].replace('.obj', '.npz')
 
-        with np.load(self.npz_filepath) as data:
+        with np.load(npz_filepath) as data:
             self.matrix_3d = data[data.files[0]].astype(np.int32)
 
 
@@ -105,7 +101,7 @@ class SimulationConfig:
         # trzeba dostac metry
 
         max_freq = self.source_manager.get_max_freq()
-        wavelength = self.c / max_freq
+        wavelength = self.sound_speed / max_freq
         dx = wavelength / self.nodes_per_wavelength
 
         x_meters, y_meters, z_meters = self.get_obj_dimensions()
@@ -117,21 +113,13 @@ class SimulationConfig:
         voxelizer = Voxelizer(Nx, Ny, Nz, dx, self.obj_filepath)
         voxelizer.load_scene()
 
-        with np.load(self.npz_filepath) as data:
-            self.matrix_3d = data[data.files[0]].astype(np.int32)
-
         material_core = self.prepare_material_core()
 
-        dt = self.get_time_step(self.dim, dx, self.c, self.safety_factor)
+        dt = self.get_time_step(self.dim, dx, self.sound_speed, self.safety_factor)
 
         print_information(dt, Nx, Ny, Nz, dx)
 
-
-        fdtd_sim = FDTD_Simulation(self.c, dx, dt, self.source_manager, material_core)
-
-
-
-        # hujostwo
+        fdtd_sim = FDTD_Simulation(self.sound_speed, dx, dt, self.source_manager, material_core)
 
         sim = Simulation()
         renderer = SceneRenderer()
@@ -151,7 +139,6 @@ class SimulationConfig:
 
             fdtd_sim.update()
             current_pressure = fdtd_sim.get_current_pressure()
-            print("Current pressure: ", current_pressure[50,50,50])
 
             sim.update_planes(slice_y, slice_z, current_pressure)
             renderer.render_frame(simulation=sim, plane_geo=plane_geo)

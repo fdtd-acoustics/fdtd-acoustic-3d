@@ -1,7 +1,8 @@
 import numpy as np
 import taichi as ti
 from visualization.config import SCENES_OUT_DIR
-from voxelization.voxelizer import DX
+
+DX = 0.34000
 
 ti.init(arch=ti.gpu)
 
