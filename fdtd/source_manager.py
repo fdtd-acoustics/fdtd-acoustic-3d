@@ -1,6 +1,6 @@
 import math
 import taichi as ti
-from visualization import config, PML_THICK
+from visualization import config
 
 
 @ti.data_oriented
@@ -10,6 +10,8 @@ class SourceManager:
         self.count = ti.field(ti.i32, shape=())
         self.count[None] = 0
 
+        self.names = []
+
         self.data = ti.Struct.field({
             "pos": ti.types.vector(3, ti.i32),
             "amp": ti.f32,
@@ -18,17 +20,26 @@ class SourceManager:
             "delay_t": ti.f32,
         }, shape=max_sources)
 
-    def add_source(self, x, y, z, freq, amplitude):
+    def add_source(self, name, freq, amplitude):
         idx = self.count[None]
 
         if idx < self.max_sources:
             sigma = math.sqrt(2 * math.log(2)) / (2 * math.pi * freq)
-            self.data[idx].pos = [x + config.PML_THICK, y + PML_THICK, z + PML_THICK] # uwzgledniamy warstwe pml
+            #self.data[idx].pos = [x + config.PML_THICK, y + PML_THICK, z + PML_THICK] # uwzgledniamy warstwe pml
+            self.data[idx].pos = [60,60,60] # domyslne
+            self.names.append(name)
+
             self.data[idx].amp = amplitude
             self.data[idx].freq = freq
             self.data[idx].sigma = sigma
             self.data[idx].delay_t = 4 * sigma
             self.count[None] += 1
+
+    def set_pos(self, idx, x, y, z):
+        if 0 <= idx < self.count[None]:
+            self.data[idx].pos = [int(x), int(y), int(z)]
+        else:
+            print(f"blad {idx}")
 
     @ti.kernel
     def update_sources(self, p_field: ti.template(), steps: ti.i32, dt:ti.f32):

@@ -33,7 +33,7 @@ SOURCE_POS = (N//2, N//2, N//2 )
 FREQ_MAX = 1000.0 # maksymalna czestotliwpsc fali [Hz]
 AMPLITUDE = 1000.0
 C = 343.0
-PML_THICK = 20
+PML_THICK = 20 # this has to be fixed and be taken from simulation_config.py
 NODES_PER_WAVELENGTH = 10
 alpha_max = 0.15 # maksymalne tlumienie wystepujace na samym brzegu domeny obliczeniowej
 DIM = 3  # 2D
@@ -54,5 +54,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent.parent
 SCENES_DIR = ROOT_DIR / "scenes"
-SCENES_IN_DIR = SCENES_DIR / "input"
+SCENES_MODELS_DIR = SCENES_DIR / "models"
 SCENES_OUT_DIR = SCENES_DIR / "output"
+
+

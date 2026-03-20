@@ -10,10 +10,8 @@ from typing import List
 
 @ti.data_oriented
 class FDTD_Simulation:
-    def __init__(self, c: float, dx: float, dt:float, sources: SourceManager,
-                 receivers: ReceiverManager, material_core: ti.template()):
+    def __init__(self, c: float, dx: float, dt:float, sources: SourceManager, material_core: ti.template()):
         self.sources = sources
-        self.receivers = receivers
         self.C = c
         self.dx= dx
         self.dt = dt
@@ -155,7 +153,7 @@ class FDTD_Simulation:
 
         self.step(p_past, p_present, self.steps)
         self.sources.update_sources(p_past, self.steps, self.dt) # ZRODLO
-        self.receivers.update_receivers(p_past, self.steps) # MIKROFONY
+        # self.receivers.update_receivers(p_past, self.steps) # MIKROFONY
         self.steps += 1
 
 
