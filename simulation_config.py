@@ -15,6 +15,15 @@ MATERIAL_MAP = {
     2: [0.1, 500.0]
 }
 
+def print_information(dt, Nx, Ny, Nz, dx):
+    print("Simulation parameters:")
+    print(f"dt: {dt}")
+    print(f"Nx: {Nx}")
+    print(f"Ny: {Ny}")
+    print(f"Nz: {Nz}")
+    print(f"dx: {dx}")
+
+
 @ti.kernel
 def fill_material_kernel(
         material_field: ti.template(),
@@ -34,13 +43,13 @@ class SimulationConfig:
                  pml_thick: int,
                  alpha_max: float,
                  source_manager: SourceManager,
-                 receiver_manager: ReceiverManager):
+                ):
         self.source_manager = source_manager
-        self.receiver_manager = receiver_manager
+        # self.receiver_manager = receiver_manager
         self.obj_filepath = obj_filepath
         self.pml_thick = pml_thick
         self.alpha_max = alpha_max
-        self.npz_filepath = SCENES_OUT_DIR/obj_filepath.replace('.obj', '.npz')
+        self.npz_filepath = SCENES_OUT_DIR / obj_filepath.split("/")[-1].replace('.obj', '.npz')
 
         self.nx = 0
         self.ny = 0
@@ -49,10 +58,13 @@ class SimulationConfig:
         with open("config.yaml", 'r') as file:
             self.yaml_data = yaml.safe_load(file)
 
-        self.c = self.yaml_data['sound_speed']
-        self.nodes_per_wavelength = self.yaml_data['nodes_per_wavelength']
-        self.dim = self.yaml_data['dimensions']
-        self.safety_factor = self.yaml_data['safety_factor']
+        self.c = 343.0
+        self.nodes_per_wavelength = 10
+        self.dim = 3
+        self.safety_factor = 0.95
+
+        with np.load(self.npz_filepath) as data:
+            self.matrix_3d = data[data.files[0]].astype(np.int32)
 
 
     def get_time_step(self, dimensions, dx, speed, safety_factor):
@@ -60,10 +72,7 @@ class SimulationConfig:
         return (dx / speed) * courant_limit * safety_factor
 
     def prepare_material_core(self):
-        with np.load(self.npz_filepath) as data:
-            matrix_3d = data[data.files[0]].astype(np.int32)
-
-        self.nx, self.ny, self.nz = matrix_3d.shape
+        self.nx, self.ny, self.nz = self.matrix_3d.shape
 
         material_core = ti.Vector.field(2, dtype=ti.f32, shape=(self.nx, self.ny, self.nz))
 
@@ -71,7 +80,7 @@ class SimulationConfig:
         alphas = np.array([MATERIAL_MAP[i][0] for i in ids], dtype=np.float32)
         densities = np.array([MATERIAL_MAP[i][1] for i in ids], dtype=np.float32)
 
-        fill_material_kernel(material_core, matrix_3d, alphas, densities)
+        fill_material_kernel(material_core, self.matrix_3d, alphas, densities)
 
         return material_core
 
@@ -79,7 +88,7 @@ class SimulationConfig:
 
     def get_obj_dimensions(self):
         try:
-            mesh = trimesh.load(self.filepath, force='mesh')
+            mesh = trimesh.load(self.obj_filepath, force='mesh')
 
             bounds = mesh.bounds
 
@@ -107,11 +116,18 @@ class SimulationConfig:
 
         voxelizer = Voxelizer(Nx, Ny, Nz, dx, self.obj_filepath)
         voxelizer.load_scene()
+
+        with np.load(self.npz_filepath) as data:
+            self.matrix_3d = data[data.files[0]].astype(np.int32)
+
         material_core = self.prepare_material_core()
 
         dt = self.get_time_step(self.dim, dx, self.c, self.safety_factor)
 
-        fdtd_sim = FDTD_Simulation(self.c, dx, dt, self.source_manager, self.receiver_manager, material_core)
+        print_information(dt, Nx, Ny, Nz, dx)
+
+
+        fdtd_sim = FDTD_Simulation(self.c, dx, dt, self.source_manager, material_core)
 
 
 
@@ -135,6 +151,7 @@ class SimulationConfig:
 
             fdtd_sim.update()
             current_pressure = fdtd_sim.get_current_pressure()
+            print("Current pressure: ", current_pressure[50,50,50])
 
             sim.update_planes(slice_y, slice_z, current_pressure)
             renderer.render_frame(simulation=sim, plane_geo=plane_geo)

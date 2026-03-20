@@ -26,7 +26,7 @@ class SourceManager:
         if idx < self.max_sources:
             sigma = math.sqrt(2 * math.log(2)) / (2 * math.pi * freq)
             #self.data[idx].pos = [x + config.PML_THICK, y + PML_THICK, z + PML_THICK] # uwzgledniamy warstwe pml
-            self.data[idx].pos = [0,0,0] # domyslne
+            self.data[idx].pos = [60,60,60] # domyslne
             self.names.append(name)
 
             self.data[idx].amp = amplitude

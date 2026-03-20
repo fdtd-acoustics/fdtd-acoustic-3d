@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import trimesh
 
-from visualization.config import SCENES_IN_DIR, SCENES_OUT_DIR
+from visualization.config import SCENES_OUT_DIR
 
 
 class Voxelizer:
@@ -11,7 +11,7 @@ class Voxelizer:
         self.NX = NX
         self.NY = NY
         self.NZ = NZ
-        self.dx = dx
+        self.DX = dx
         self.file_path = file_path
         self.core_x = NX //2
         self.core_y = NY //2
@@ -50,7 +50,7 @@ class Voxelizer:
         np.savez(save_file_name, material_core=self.space_matrix)
         print("Saved scene to file: ", save_file_name)
 
-    def fill_normal_objects(voxelized_object):
+    def fill_normal_objects(self,voxelized_object):
         filled_object = voxelized_object.fill()
         if len(filled_object.points) > 0:
             print(f" -> fill() OK: {len(filled_object.points)} voxels")
@@ -65,7 +65,7 @@ class Voxelizer:
     def voxelize_geometry(self,geom, geom_name):
 
         #wokselizacja obiektu
-        voxelized_object = geom.voxelized(pitch=self.dx)
+        voxelized_object = geom.voxelized(pitch=self.DX)
 
         #wypelniania jesli nie jest sciana
         is_wall = "wall" in geom_name.lower()
@@ -97,7 +97,7 @@ class Voxelizer:
             print(f"Processing ==> {geom_name}")
             print(f" -> Is it watertight? {geom.is_watertight}")
 
-            indices, = self.voxelize_geometry(geom, geom_name)
+            indices = self.voxelize_geometry(geom, geom_name)
 
             if len(indices) == 0:
                 print(f" -> Object is outside of domain - skipping")

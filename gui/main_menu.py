@@ -3,10 +3,11 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 class MainMenuWindow(tk.Tk):
-    def __init__(self) -> None:
+    def __init__(self, on_start=None) -> None:
         super().__init__()
         self.title("FDTD simulation configuration menu")
         self.geometry("780x540")
+        self.on_start = on_start
 
         self.obj_filepath: str | None = None
         self.sources_data: list[dict] = []
@@ -140,7 +141,7 @@ class MainMenuWindow(tk.Tk):
 
     def add_source(self) -> None:
         s_type = self.combo_type.get()
-        default_coords = (0.0, 0.0, 0.0)
+        default_coords = (60.0, 60.0, 60.0)
 
         try:
             if s_type == "Gauss":
@@ -251,3 +252,10 @@ class MainMenuWindow(tk.Tk):
         print(f"OBJ file:      {config['obj_file']}")
         print(f"Sources:       {config['sources']}")
         print(f"PML:           {config['pml_thickness']},  Alpha max: {config['alpha_max']}")
+        if self.on_start:
+            self.on_start(config)
+            self.destroy()
+
+if __name__ == "__main__":
+    app = MainMenuWindow()
+    app.mainloop()
