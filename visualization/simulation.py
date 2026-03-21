@@ -2,8 +2,11 @@ import math
 
 import numpy as np
 import taichi as ti
-from . import config
+from . import vis_config as config
 
+
+#todo:ta klasa korzysta jeszcze z N to trzeba przerobic na nx,ny,nz
+# plus mozna to jakos inaczej nazwac bo to simulation nie jest
 @ti.data_oriented
 class Simulation:
     def __init__(self):

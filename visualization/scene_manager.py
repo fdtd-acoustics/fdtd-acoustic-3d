@@ -1,6 +1,6 @@
 import taichi as ti
 
-from . import config
+from . import vis_config as config
 
 class SceneRenderer:
     def __init__(self):

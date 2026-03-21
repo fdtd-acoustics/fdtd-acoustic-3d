@@ -1,6 +1,6 @@
 import math
 import taichi as ti
-from visualization import config
+import config
 
 
 @ti.data_oriented
@@ -56,3 +56,21 @@ class SourceManager:
             if current_f > max_f:
                 max_f = current_f
         return max_f
+
+    @classmethod
+    def from_dict(cls, sources: list[dict]) -> 'SourceManager':
+        manager = cls(len(sources))
+        for source in sources:
+            if source['type'] == 'Gauss':
+                manager.add_source(
+                    name='gauss_source',
+                    freq=source['freq'],
+                    amplitude=source['amp'],
+                )
+            elif source['type'] == 'Custom':
+                manager.add_source(
+                    name='custom_source',
+                    freq=None,
+                    amplitude=None,
+                )
+        return manager

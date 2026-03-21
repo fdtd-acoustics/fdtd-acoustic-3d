@@ -1,12 +1,12 @@
 import numpy as np
 import taichi as ti
-from visualization.config import SCENES_OUT_DIR
+import config
 
 DX = 0.34000
 
 ti.init(arch=ti.gpu)
 
-output_file_path = SCENES_OUT_DIR / "test_room4.npz"
+output_file_path = config.SCENES_OUT_DIR / "test_room4.npz"
 
 def show_taichi_3d():
     data = np.load(output_file_path)

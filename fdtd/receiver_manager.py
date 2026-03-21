@@ -1,5 +1,5 @@
 import taichi as ti
-from visualization import config, PML_THICK
+import config
 from scipy.io import wavfile
 import numpy as np
 
@@ -20,7 +20,7 @@ class ReceiverManager:
     def add_receiver(self, x, y, z, name):
         idx = self.count[None]
         if idx < self.max_receivers:
-            self.pos[idx] = [x + PML_THICK, y + PML_THICK, z+ PML_THICK]
+            self.pos[idx] = [x + config.PML_THICK, y + config.PML_THICK, z+ config.PML_THICK]
             self.names.append(name)
             self.count[None] += 1
 

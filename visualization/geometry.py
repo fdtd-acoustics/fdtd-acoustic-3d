@@ -1,5 +1,5 @@
 import taichi as ti
-from . import config
+from . import vis_config as config
 
 """
 @ti.data_oriented
@@ -58,6 +58,7 @@ class CubeGeometry:
             self.indices[i * 6 + 5] = offset + 3
 """
 
+#todo:ta klasa korzysta jeszcze z N to trzeba przerobic na nx,ny,nz
 @ti.data_oriented
 class PlaneGeometry:
     def __init__(self):
