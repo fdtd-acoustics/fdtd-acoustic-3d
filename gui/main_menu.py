@@ -2,6 +2,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
+#Todo: oprocz tych poprawek co gadalismy to mozna zrobic dark theme
 class MainMenuWindow(tk.Tk):
     def __init__(self, on_start=None) -> None:
         super().__init__()

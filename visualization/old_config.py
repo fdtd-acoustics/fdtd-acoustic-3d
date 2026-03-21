@@ -1,4 +1,5 @@
-#TODO:Maybe zmiana na yaml?
+#TODO: Zostawiam narazie jakby sie okazalo ze czegos zapomnialem wrzucic
+#wszystko jest teraz config.py w glownym pliku i vis_config.py w visualization
 
 ## Simulation settings
 N = 185  # nieuzywane

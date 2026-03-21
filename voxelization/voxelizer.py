@@ -2,10 +2,10 @@ from pathlib import Path
 
 import numpy as np
 import trimesh
+import config
 
-from visualization.config import SCENES_OUT_DIR
 
-
+#Todo: refactor tej klasy
 class Voxelizer:
     def __init__(self, NX, NY, NZ, dx, file_path):
         self.NX = NX
@@ -17,36 +17,25 @@ class Voxelizer:
         self.core_y = NY //2
         self.core_z = NZ // 2
         self.space_matrix = np.zeros((NX,NY,NZ), dtype=np.int8)
-        self.DEFAULT_MATERIAL = 1
-        self.MATERIALS_IDS = {
-            "air": 0,
-            "wall": 1,
-            "metal": 2
-        }
 
 # TODO: Test czy materialy tez sa
 
-
-
-
-    def get_material_id(self, obj_name):
+    def get_material_id(self, obj_name: str) -> int:
         obj_name_lower = obj_name.lower()
-        for material_name, id in self.MATERIALS_IDS.items():
-            if material_name in obj_name_lower:
-                return id
-        else:
-            return self.DEFAULT_MATERIAL
+        for mat_id, mat in config.MATERIAL_MAP.items():
+            if mat["name"] in obj_name_lower:
+                return mat_id
+        return config.DEFAULT_MATERIAL_ID
 
-    def get_material_name(self,obj_name):
+    def get_material_name(self, obj_name: str) -> str:
         obj_name_lower = obj_name.lower()
-        for material_name, id in self.MATERIALS_IDS.items():
-            if material_name in obj_name_lower:
-                return material_name
-        else:
-            return self.DEFAULT_MATERIAL
+        for mat in config.MATERIAL_MAP.values():
+            if mat["name"] in obj_name_lower:
+                return mat["name"]
+        return config.MATERIAL_MAP[config.DEFAULT_MATERIAL_ID]["name"]
 
     def save_to_file(self):
-        save_file_name = SCENES_OUT_DIR / Path(self.file_path).with_suffix(".npz").name
+        save_file_name = config.SCENES_OUT_DIR / Path(self.file_path).with_suffix(".npz").name
         np.savez(save_file_name, material_core=self.space_matrix)
         print("Saved scene to file: ", save_file_name)
 
@@ -58,9 +47,6 @@ class Voxelizer:
         else:
             print(f" -> fill() ERROR: could not fill object. Returning unfilled object.")
             return voxelized_object
-
-
-
 
     def voxelize_geometry(self,geom, geom_name):
 

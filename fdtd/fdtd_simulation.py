@@ -1,13 +1,11 @@
 import math
 
 import taichi as ti
-from visualization import config
+
+import config
 from .source_manager import SourceManager
-from .receiver_manager import ReceiverManager
-from typing import List
 
-
-
+#todo:konwencja w pytonie jest taka ze internal methody zacznymay od _ a publiczne normalnie
 @ti.data_oriented
 class FDTD_Simulation:
     def __init__(self, c: float, dx: float, dt:float, sources: SourceManager, material_core: ti.template()):
@@ -113,7 +111,7 @@ class FDTD_Simulation:
 
                 dist_final = ti.max(dist_x, dist_y, dist_z)
                 if dist_final > 0.0:
-                    alpha_val = config.alpha_max * (dist_final ** 3)
+                    alpha_val = config.ALPHA_MAX * (dist_final ** 3)
                     self.alpha_A[i, j, k] = self.calculate_alpha_A(self.C, alpha_val, density_val)  # gestosc powietrza
                     self.alpha_B[i, j, k] = self.calculate_alpha_B(self.C, alpha_val)
 
