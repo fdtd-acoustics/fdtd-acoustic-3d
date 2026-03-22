@@ -116,7 +116,7 @@ class FDTD_Simulation:
 
                 dist_final = ti.max(dist_x, dist_y, dist_z)
                 if dist_final > 0.0:
-                    alpha_val = config.ALPHA_MAX * (dist_final ** 3)
+                    alpha_val = self.alpha_max * (dist_final ** 3)
                     self.alpha_A[i, j, k] = self.calculate_alpha_A(self.sound_speed, alpha_val, density_val)  # gestosc powietrza
                     self.alpha_B[i, j, k] = self.calculate_alpha_B(self.sound_speed, alpha_val)
 

@@ -16,6 +16,7 @@ class RenderLoop:
         self._grid = grid
         self._sim = sim
         self._renderer = renderer
+        self._is_paused = False
 
     def run(self) -> None:
         plane_geo = PlaneGeometry()
@@ -26,7 +27,8 @@ class RenderLoop:
         while self._renderer.is_running:
             slice_y, slice_z = self._handle_gui(slice_y, slice_z)
 
-            self._fdtd_sim.update()
+            if not self._is_paused:
+                self._fdtd_sim.update()
             current_pressure = self._fdtd_sim.get_current_pressure()
 
             self._sim.update_planes(slice_y, slice_z, current_pressure)
@@ -40,5 +42,9 @@ class RenderLoop:
         with gui.sub_window("2D Slices", 0.05, 0.05, 0.5, 0.2):
             slice_y = gui.slider_int("Horizontal Slice", slice_y, 0, self._grid.Ny - 1)
             slice_z = gui.slider_int("Vertical Slice", slice_z, 0, self._grid.Nz - 1)
+
+            btn_label = "START" if self._is_paused else "PAUSE"
+            if gui.button(btn_label):
+                self._is_paused = not self._is_paused
 
         return slice_y, slice_z
