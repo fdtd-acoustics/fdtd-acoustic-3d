@@ -206,17 +206,17 @@ class MainMenuWindow(tk.Tk):
 
         ttk.Label(adv_frame, text="PML thickness (layers):").grid(row=0, column=0, sticky="w", pady=2)
         self.entry_pml = ttk.Entry(adv_frame, width=10)
-        self.entry_pml.insert(0, "10")
+        self.entry_pml.insert(0, "20")
         self.entry_pml.grid(row=0, column=1, padx=10, pady=2)
 
         ttk.Label(adv_frame, text="Alpha max (attenuation):").grid(row=1, column=0, sticky="w", pady=2)
         self.entry_alpha = ttk.Entry(adv_frame, width=10)
-        self.entry_alpha.insert(0, "0.01")
+        self.entry_alpha.insert(0, "0.15")
         self.entry_alpha.grid(row=1, column=1, padx=10, pady=2)
 
     def start_simulation(self) -> None:
         try:
-            pml = int(self.entry_pml.get())
+            pml_thick = int(self.entry_pml.get())
             alpha = float(self.entry_alpha.get())
         except ValueError:
             messagebox.showerror("Error", "Check the validity of the entered parameters.")
@@ -245,7 +245,7 @@ class MainMenuWindow(tk.Tk):
         config = {
             "obj_file": self.obj_filepath,
             "sources": self.sources_data,
-            "pml_thickness": pml,
+            "pml_thickness": pml_thick,
             "alpha_max": alpha,
         }
 

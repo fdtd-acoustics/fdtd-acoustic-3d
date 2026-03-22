@@ -6,20 +6,25 @@ import config
 from .source_manager import SourceManager
 
 #todo:konwencja w pytonie jest taka ze internal methody zacznymay od _ a publiczne normalnie
+
 @ti.data_oriented
 class FDTD_Simulation:
-    def __init__(self, c: float, dx: float, dt:float, sources: SourceManager, material_core: ti.template()):
+    def __init__(self, sound_speed: float, dx: float, dt: float, pml_thick: int,
+                 alpha_max: float, safety_factor: float,
+                 sources: SourceManager, material_core: ti.template()):
         self.sources = sources
-        self.C = c
+        self.sound_speed = sound_speed
         self.dx= dx
         self.dt = dt
+        self.pml_thick = pml_thick
+        self.alpha_max = alpha_max
 
-        self.courant = (1.0 / math.sqrt(config.DIM)) * config.SAFETY_FACTOR
+        self.courant = (1.0 / math.sqrt(config.DIM)) * safety_factor
         self.courant_sq = self.courant ** 2
 
-        self.Nx = material_core.shape[0] + config.PML_THICK*2
-        self.Ny = material_core.shape[1] + config.PML_THICK*2
-        self.Nz = material_core.shape[2] + config.PML_THICK*2
+        self.Nx = material_core.shape[0] + self.pml_thick*2
+        self.Ny = material_core.shape[1] + self.pml_thick*2
+        self.Nz = material_core.shape[2] + self.pml_thick*2
 
         self.steps = 0
 
@@ -37,12 +42,12 @@ class FDTD_Simulation:
         self.prepare_simulation_data(material_core)
 
     @ti.func
-    def calculate_alpha_A(self, c: ti.f32, alpha: ti.f32, density: ti.f32) -> ti.f32:
-        return alpha * (density * c ** 2 + 1.0 / density)
+    def calculate_alpha_A(self, sound_speed: ti.f32, alpha: ti.f32, density: ti.f32) -> ti.f32:
+        return alpha * (density * sound_speed ** 2 + 1.0 / density)
 
     @ti.func
-    def calculate_alpha_B(sellf, c: ti.f32, alpha: ti.f32) -> ti.f32:
-        return (c ** 2) * (alpha ** 2)
+    def calculate_alpha_B(sellf, sound_speed: ti.f32, alpha: ti.f32) -> ti.f32:
+        return (sound_speed ** 2) * (alpha ** 2)
 
     @ti.func
     def beta_from_alpha(self, alpha: ti.f32) -> ti.f32:
@@ -74,46 +79,46 @@ class FDTD_Simulation:
             alpha_val = config.DEFAULT_ALPHA
             density_val = config.DEFAULT_DENSITY
 
-            if (i >= config.PML_THICK and i < self.Nx - config.PML_THICK and
-                    j >= config.PML_THICK and j < self.Ny - config.PML_THICK and
-                    k >= config.PML_THICK and k < self.Nz - config.PML_THICK):
+            if (i >= self.pml_thick and i < self.Nx - self.pml_thick and
+                    j >= self.pml_thick and j < self.Ny - self.pml_thick and
+                    k >= self.pml_thick and k < self.Nz - self.pml_thick):
 
-                ii = i - config.PML_THICK
-                jj = j - config.PML_THICK
-                kk = k - config.PML_THICK
+                ii = i - self.pml_thick
+                jj = j - self.pml_thick
+                kk = k - self.pml_thick
 
                 mat_data = material_core[ii, jj, kk]
                 alpha_val = mat_data[0]
                 density_val = mat_data[1]
 
-                self.alpha_A[i, j, k] = self.calculate_alpha_A(self.C, alpha_val, density_val)
-                self.alpha_B[i, j, k] = self.calculate_alpha_B(self.C, alpha_val)
+                self.alpha_A[i, j, k] = self.calculate_alpha_A(self.sound_speed, alpha_val, density_val)
+                self.alpha_B[i, j, k] = self.calculate_alpha_B(self.sound_speed, alpha_val)
 
             else:
                 #PML
                 dist_x = 0.0
-                if i < config.PML_THICK:
-                    dist_x = ti.cast(config.PML_THICK - i, ti.f32) / config.PML_THICK
-                elif i >= self.Nx - config.PML_THICK:
-                    dist_x = ti.cast(i - (self.Nx - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+                if i < self.pml_thick:
+                    dist_x = ti.cast(self.pml_thick - i, ti.f32) / self.pml_thick
+                elif i >= self.Nx - self.pml_thick:
+                    dist_x = ti.cast(i - (self.Nx - self.pml_thick) + 1, ti.f32) / self.pml_thick
 
                 dist_y = 0.0
-                if j < config.PML_THICK:
-                    dist_y = ti.cast(config.PML_THICK - j, ti.f32) / config.PML_THICK
-                elif j >= self.Ny - config.PML_THICK:
-                    dist_y = ti.cast(j - (self.Ny - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+                if j < self.pml_thick:
+                    dist_y = ti.cast(self.pml_thick - j, ti.f32) / self.pml_thick
+                elif j >= self.Ny - self.pml_thick:
+                    dist_y = ti.cast(j - (self.Ny - self.pml_thick) + 1, ti.f32) / self.pml_thick
 
                 dist_z = 0.0
-                if k < config.PML_THICK:
-                    dist_z = ti.cast(config.PML_THICK - k, ti.f32) / config.PML_THICK
-                elif k >= self.Nz - config.PML_THICK:
-                    dist_z = ti.cast(k - (self.Nz - config.PML_THICK) + 1, ti.f32) / config.PML_THICK
+                if k < self.pml_thick:
+                    dist_z = ti.cast(self.pml_thick - k, ti.f32) / self.pml_thick
+                elif k >= self.Nz - self.pml_thick:
+                    dist_z = ti.cast(k - (self.Nz - self.pml_thick) + 1, ti.f32) / self.pml_thick
 
                 dist_final = ti.max(dist_x, dist_y, dist_z)
                 if dist_final > 0.0:
                     alpha_val = config.ALPHA_MAX * (dist_final ** 3)
-                    self.alpha_A[i, j, k] = self.calculate_alpha_A(self.C, alpha_val, density_val)  # gestosc powietrza
-                    self.alpha_B[i, j, k] = self.calculate_alpha_B(self.C, alpha_val)
+                    self.alpha_A[i, j, k] = self.calculate_alpha_A(self.sound_speed, alpha_val, density_val)  # gestosc powietrza
+                    self.alpha_B[i, j, k] = self.calculate_alpha_B(self.sound_speed, alpha_val)
 
             k_val = self.k_field[i, j, k]
             beta_val = self.beta_from_alpha(alpha_val)

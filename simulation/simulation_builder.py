@@ -60,9 +60,12 @@ class SimulationBuilder:
         """Builds FDTD_Simulation"""
         material_core = self._prepare_material_core()
         return FDTD_Simulation(
-            c=self._cfg.sound_speed,
+            sound_speed=self._cfg.sound_speed,
             dx=grid.dx,
             dt=grid.dt,
+            pml_thick = self._cfg.pml_thick,
+            alpha_max= self._cfg.alpha_max,
+            safety_factor = self._cfg.safety_factor,
             sources=self._source_manager,
             material_core=material_core,
         )
