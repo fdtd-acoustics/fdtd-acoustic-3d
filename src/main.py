@@ -117,7 +117,7 @@ def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
         w1 = 1.0 + bk_val + alpha_a/2 * DT + alpha_b * (DT**2)
         w2 = COURANT_SQ * (p_now[i + 1, j] + p_now[i - 1, j] + p_now[i, j + 1] + p_now[i, j - 1])
         w3 = (2.0 - k_val * COURANT_SQ) * p_now[i,j]
-        w4 = (bk_val - 1.0 - (alpha_a / 2.0) * DT) * p_prev[i,j]
+        w4 = (bk_val - 1.0 + (alpha_a / 2.0) * DT) * p_prev[i,j]
 
         p_prev[i, j] = (1.0 / w1) * (w2 + w3 + w4)
 
