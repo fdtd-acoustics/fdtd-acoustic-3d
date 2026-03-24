@@ -17,10 +17,10 @@ def run_pipeline(cfg: dict) -> None:
     builder.voxelize(grid)
     fdtd_sim = builder.build_fdtd(grid)
 
-    sim = Simulation()
+    sim = Simulation(grid)
     sim.init_voxels(sim_config.npz_filepath)
 
-    renderer = SceneRenderer()
+    renderer = SceneRenderer(grid)
 
     #tutaj bedziemy dorzucac stawianie Sourcow, ale ten sam renderer i powinno byc git
     #po prostu mozemy stworzyc cos na wzor RenderLoopa doslownie tylko inne rzeczy bedzie robil

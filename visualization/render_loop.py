@@ -18,7 +18,8 @@ class RenderLoop:
         self._renderer = renderer
 
     def run(self) -> None:
-        plane_geo = PlaneGeometry()
+        plane_geo_1 = PlaneGeometry(self._grid.Nx, self._grid.Nz)
+        plane_geo_2   = PlaneGeometry(self._grid.Nx, self._grid.Ny)
 
         slice_y = self._grid.Ny // 2
         slice_z = self._grid.Nz // 2
@@ -30,7 +31,7 @@ class RenderLoop:
             current_pressure = self._fdtd_sim.get_current_pressure()
 
             self._sim.update_planes(slice_y, slice_z, current_pressure)
-            self._renderer.render_frame(simulation=self._sim, plane_geo=plane_geo)
+            self._renderer.render_frame(simulation=self._sim, plane_geo_1=plane_geo_1, plane_geo_2=plane_geo_2)
 
     def _handle_gui(self,
                     slice_y: int,

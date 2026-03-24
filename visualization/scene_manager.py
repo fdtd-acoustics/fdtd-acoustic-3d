@@ -3,15 +3,15 @@ import taichi as ti
 from . import vis_config as config
 
 class SceneRenderer:
-    def __init__(self):
+    def __init__(self, grid):
         self.window = ti.ui.Window(name="FDTD 3D Slices", res=config.SCREEN_RESOLUTION, fps_limit=config.FPS_LIMIT)
         self.canvas = self.window.get_canvas()
         self.scene = self.window.get_scene()
         self.camera = ti.ui.Camera()
-        self.camera.position(config.CAMERA_POS_X, config.CAMERA_POS_Y, config.CAMERA_POS_Z)
-        self.camera.lookat(0, 0, 0) # temp values
+        self.camera.position(grid.Nx - grid.Nx//10, grid.Ny - grid.Ny//10, grid.Nz - grid.Nz//10)
+        self.camera.lookat(grid.Nx//2, grid.Ny//2, grid.Nz//2)
 
-    def render_frame(self, simulation, plane_geo):
+    def render_frame(self, simulation, plane_geo_1, plane_geo_2):
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
 
@@ -27,8 +27,8 @@ class SceneRenderer:
                 per_vertex_color=simulation.voxels_color
             )
 
-        self.scene.mesh(simulation.plane_v_1, indices=plane_geo.indices, per_vertex_color=simulation.plane_c_1)
-        self.scene.mesh(simulation.plane_v_2, indices=plane_geo.indices, per_vertex_color=simulation.plane_c_2)
+        self.scene.mesh(simulation.plane_v_1, indices=plane_geo_1.indices, per_vertex_color=simulation.plane_c_1)
+        self.scene.mesh(simulation.plane_v_2, indices=plane_geo_2.indices, per_vertex_color=simulation.plane_c_2)
 
         self.canvas.scene(self.scene)
         self.window.show()
