@@ -12,10 +12,6 @@ NODES_PER_WAVELENGTH = 10
 DIM = 3
 SAFETY_FACTOR = 0.99
 
-# === PML ===
-#TODO:: stad bierzemy do gui jako default
-PML_THICK = 20
-ALPHA_MAX = 0.15
 
 # === Materials ===
 #TODO:: to jest to o czym gadalismy - prawdopodobnie bedzie do zmiany
