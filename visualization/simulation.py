@@ -69,8 +69,8 @@ class Simulation:
         for i, k in ti.ndrange(self.Nx, self.Nz):
             idx_1 = i * self.Nz + k
 
-            self.plane_v_1[idx_1] = ti.Vector([i-self.pml_thick, slice_y-self.pml_thick, k-self.pml_thick])
-            pres1 = pressure_field[i, slice_y, k]
+            self.plane_v_1[idx_1] = ti.Vector([i, slice_y, k])
+            pres1 = pressure_field[i + self.pml_thick , slice_y + self.pml_thick , k + self.pml_thick ]
 
             p1_norm = ti.math.clamp(pres1 / norm_val, -1.0, 1.0)
 
@@ -92,8 +92,8 @@ class Simulation:
         for i, j in ti.ndrange(self.Nx, self.Ny):
             idx_2 = i * self.Ny + j
 
-            self.plane_v_2[idx_2] = ti.Vector([i-self.pml_thick, j-self.pml_thick, slice_z-self.pml_thick])
-            pres2 = pressure_field[i, j, slice_z]
+            self.plane_v_2[idx_2] = ti.Vector([i, j, slice_z])
+            pres2 = pressure_field[i + self.pml_thick, j + self.pml_thick, slice_z + self.pml_thick]
 
             p2_norm = ti.math.clamp(pres2 / norm_val, -1.0, 1.0)
 
