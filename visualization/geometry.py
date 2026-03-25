@@ -63,6 +63,7 @@ class CubeGeometry:
 # This class gets dimensions for specific plane, not for all the planes
 @ti.data_oriented
 class PlaneGeometry:
+    #TODO Dodać uwzględnienie PML THICK
     def __init__(self, dim_x, dim_y):
         self.dim_x = dim_x  # local X dimension of a specific plane
         self.dim_y = dim_y  # local Y dimension of a specific plane

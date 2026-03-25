@@ -17,7 +17,7 @@ def run_pipeline(cfg: dict) -> None:
     builder.voxelize(grid)
     fdtd_sim = builder.build_fdtd(grid)
 
-    sim = Simulation(grid)
+    sim = Simulation(grid, sim_config.pml_thick)
     sim.init_voxels(sim_config.npz_filepath)
 
     renderer = SceneRenderer(grid)
