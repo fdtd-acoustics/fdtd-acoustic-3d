@@ -1,5 +1,7 @@
 import math
 import taichi as ti
+from scipy.io import wavfile
+import numpy as np
 import config
 
 
@@ -34,6 +36,13 @@ class SourceManager:
             self.data[idx].sigma = sigma
             self.data[idx].delay_t = 4 * sigma
             self.count[None] += 1
+
+
+    # def add_source(self, name, source_type, **kwargs):
+    #     idx = self.count[None]
+    #     if idx >= self.max_sources:
+    #         return
+
 
     def set_pos(self, idx, x, y, z):
         if 0 <= idx < self.count[None]:
@@ -74,3 +83,50 @@ class SourceManager:
                     amplitude=None,
                 )
         return manager
+
+
+    @classmethod
+    def get_highest_frequency(cls, sources: list[dict]) -> float:
+        max_freq = 0.0
+        for source in sources:
+            current_freq = 0.0
+
+            if source['type'] == 'Gauss':
+                current_freq = float(source.get('freq', 0.0))
+
+            elif source['type'] == 'Custom':
+                file_path = source.get('file_path')
+                if file_path:
+                    current_freq = cls._analyze_wav_freq_max(file_path)
+
+            if current_freq > max_freq:
+                max_freq = current_freq
+
+        return max_freq
+
+
+    @classmethod
+    def _analyze_wav_freq_max(cls, file_path, threshold: float) -> float:
+        try:
+            samplerate, data = wavfile.read(file_path)
+            if len(data.shape) > 1:
+                data = data[:, 0]
+
+            n = len(data) # ilosc próbek
+            fft_values = np.abs(np.fft.fft(data)) # to wartosci liniowe(nie decybele)
+            freqs = np.fft.rfftfreq(n, d=1 / samplerate)
+
+            limit = threshold * np.max(fft_values) # pozbywamy sie najcichszych dzwiekow(slabo slyszalne a moze sie tam trafic wysoka czestotliowsc)
+            # wysoka czestotliowsc moze doprowadzic do strasznie malego dx
+            significant_freqs = freqs[fft_values > limit] # tablica czestotliowsci
+
+            if len(significant_freqs) > 0:
+                return float(significant_freqs[-1]) # zwraca najwyzsza czestotliowsc
+            return 0.0
+        except Exception as e:
+            print(f"File parsing error {file_path}: {e}")
+            return 0.0
+
+
+
+

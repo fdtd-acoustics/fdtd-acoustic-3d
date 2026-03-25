@@ -10,12 +10,12 @@ from visualization.vis_config import MEMORY_LIMIT_GB
 
 def run_pipeline(cfg: dict) -> None:
     sim_config = SimulationConfig.from_dict(cfg)
-    source_manager = SourceManager.from_dict(cfg['sources'])
+    source_manager = SourceManager.from_dict(cfg['sources']) # to trzeba tworzyc pozniej
 
-    builder = SimulationBuilder(sim_config, source_manager)
-    grid = builder.compute_grid()
+    builder = SimulationBuilder(sim_config, source_manager) # tu nie przekazjemy source_manager
+    grid = builder.compute_grid()   # tu trzeba przekazac max_freq, to odda dt wiec po tym mozna stworzyc juz source manager
     builder.voxelize(grid)
-    fdtd_sim = builder.build_fdtd(grid)
+    fdtd_sim = builder.build_fdtd(grid) # tu trzeba bedzie przekazac source managero oraz receiver manager
 
     sim = Simulation(grid, sim_config.pml_thick)
     sim.init_voxels(sim_config.npz_filepath)
