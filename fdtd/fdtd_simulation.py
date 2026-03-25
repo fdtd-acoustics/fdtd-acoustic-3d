@@ -3,14 +3,16 @@ import math
 import taichi as ti
 
 import config
+from .receiver_manager import ReceiverManager
 from .source_manager import SourceManager
 
 @ti.data_oriented
 class FDTD_Simulation:
     def __init__(self, sound_speed: float, dx: float, dt: float, pml_thick: int,
                  alpha_max: float, safety_factor: float,
-                 sources: SourceManager, material_core: ti.template()):
-        self.sources = sources
+                 source_manager: SourceManager, receiver_manager: ReceiverManager, material_core: ti.template()):
+        self.source_manager = source_manager
+        self.receiver_manager = receiver_manager
         self.sound_speed = sound_speed
         self.dx= dx
         self.dt = dt
@@ -156,8 +158,8 @@ class FDTD_Simulation:
         p_present = self.buffers[(self.steps + 1) % 2]
 
         self._step(p_past, p_present, self.steps)
-        self.sources.update_sources(p_past, self.steps, self.dt) # ZRODLO
-        # self.receivers.update_receivers(p_past, self.steps) # MIKROFONY
+        self.source_manager.update_sources(p_past, self.steps) # ZRODLO
+        self.receiver_manager.update_receivers(p_past, self.steps) # MIKROFONY
         self.steps += 1
 
 

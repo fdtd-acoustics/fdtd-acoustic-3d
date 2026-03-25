@@ -1,6 +1,6 @@
 import taichi as ti
 
-from fdtd import SourceManager
+from fdtd import SourceManager, ReceiverManager
 from gui import MainMenuWindow
 from simulation import SimulationConfig, SimulationBuilder
 from visualization import SceneRenderer, Simulation
@@ -10,12 +10,10 @@ from visualization.vis_config import MEMORY_LIMIT_GB
 
 def run_pipeline(cfg: dict) -> None:
     sim_config = SimulationConfig.from_dict(cfg)
-    source_manager = SourceManager.from_dict(cfg['sources']) # to trzeba tworzyc pozniej
 
-    builder = SimulationBuilder(sim_config, source_manager) # tu nie przekazjemy source_manager
-    grid = builder.compute_grid()   # tu trzeba przekazac max_freq, to odda dt wiec po tym mozna stworzyc juz source manager
+    builder = SimulationBuilder(sim_config)
+    grid = builder.compute_grid(cfg['sources'])
     builder.voxelize(grid)
-    fdtd_sim = builder.build_fdtd(grid) # tu trzeba bedzie przekazac source managero oraz receiver manager
 
     sim = Simulation(grid, sim_config.pml_thick)
     sim.init_voxels(sim_config.npz_filepath)
@@ -24,6 +22,14 @@ def run_pipeline(cfg: dict) -> None:
 
     #tutaj bedziemy dorzucac stawianie Sourcow, ale ten sam renderer i powinno byc git
     #po prostu mozemy stworzyc cos na wzor RenderLoopa doslownie tylko inne rzeczy bedzie robil
+
+    max_steps = 10000 # pozniej w gui bedzie to zdobywac
+    source_manager = SourceManager.from_dict(cfg['sources'], max_steps, grid.dt ) #TODO tu trzeba bedzie tez przekazac tablice position i od razu przy dodawaniu zrodel ustawiac
+    source_manager.set_pos(0, 40, 40, 40)
+    receiver_manager = ReceiverManager(2, 10000, grid.dt)
+    receiver_manager.add_receiver(80,80,80, "mik1")
+    fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
+
 
     RenderLoop(fdtd_sim, grid, sim, renderer).run()
 

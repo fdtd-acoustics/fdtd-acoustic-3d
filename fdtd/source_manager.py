@@ -7,82 +7,108 @@ import config
 
 @ti.data_oriented
 class SourceManager:
-    def __init__(self, max_sources: int):
+    def __init__(self, max_sources: int, max_steps: int):
         self.max_sources = max_sources
+        self.max_steps = max_steps
+
         self.count = ti.field(ti.i32, shape=())
         self.count[None] = 0
 
         self.names = []
 
-        self.data = ti.Struct.field({
+        self.info = ti.Struct.field({
             "pos": ti.types.vector(3, ti.i32),
-            "amp": ti.f32,
-            "freq": ti.f32,
-            "sigma": ti.f32,
-            "delay_t": ti.f32,
-        }, shape=max_sources)
+            "base_amp": ti.f32,   # mozna podglosnic/sciszyc zrodlo
+        }, shape=self.max_sources)
 
-    def add_source(self, name, freq, amplitude):
+        self.waveforms = ti.field(dtype=ti.f32, shape=(max_sources, max_steps))
+
+    @ti.kernel
+    def _copy_waveform(self, dest: ti.template(), src: ti.template(), source_idx: ti.i32, steps: ti.i32):
+        for t in range(steps):
+            dest[source_idx, t] = src[t]
+
+    def add_source(self, name: str, waveform_array: np.ndarray, base_amp:ti.f32):
         idx = self.count[None]
 
         if idx < self.max_sources:
-            sigma = math.sqrt(2 * math.log(2)) / (2 * math.pi * freq)
-            #self.data[idx].pos = [x + config.PML_THICK, y + PML_THICK, z + PML_THICK] # uwzgledniamy warstwe pml
-            self.data[idx].pos = [60,60,60] # domyslne
+            self.info[idx].pos =  [0,0,0] #TODO tu bedziemy ustawiac z argumentow
+            self.info[idx].base_amp = base_amp
+
+            temp_field = ti.field(dtype=ti.f32, shape=self.max_steps)
+            temp_field.from_numpy(waveform_array)
+
+            self._copy_waveform(self.waveforms, temp_field, idx, self.max_steps)
+
+            print("JUZ PO KOPIOWANIU NA GPU:")
+            for i in range(10):
+                val = self.waveforms[idx, i]
+                print(f"Krok {i}: {val:.10f}")
+
             self.names.append(name)
-
-            self.data[idx].amp = amplitude
-            self.data[idx].freq = freq
-            self.data[idx].sigma = sigma
-            self.data[idx].delay_t = 4 * sigma
-            self.count[None] += 1
-
-
-    # def add_source(self, name, source_type, **kwargs):
-    #     idx = self.count[None]
-    #     if idx >= self.max_sources:
-    #         return
-
+            self.count[None] +=1
+        else:
+            print(f"Error: Tried to add source '{name}' but reached max_sources limit")
 
     def set_pos(self, idx, x, y, z):
         if 0 <= idx < self.count[None]:
-            self.data[idx].pos = [int(x), int(y), int(z)]
+            self.info[idx].pos = [int(x), int(y), int(z)]
         else:
-            print(f"blad {idx}")
+            print(f"ERROR:  {idx}")
 
     @ti.kernel
-    def update_sources(self, p_field: ti.template(), steps: ti.i32, dt:ti.f32):
-        if steps < 10: #tymczasowo dodalem, tylko przez 10 krokow zrodlo dziala
-            for i in range(self.count[None]):
-                s = self.data[i]
-                val = s.amp * ti.exp(- ((dt * steps - dt * s.delay_t) ** 2) / (2 * s.sigma ** 2))
-                p_field[s.pos[0],s.pos[1], s.pos[2]] += val
-
-    def get_max_freq(self) -> float:
-        max_f = 0.0
+    def update_sources(self, p_field: ti.template(), step:ti.i32):
         for i in range(self.count[None]):
-            current_f = self.data[i].freq
-            if current_f > max_f:
-                max_f = current_f
-        return max_f
+            curr_pos = self.info[i].pos
+            val = self.waveforms[i, step]
+
+            p_field[curr_pos[0], curr_pos[1], curr_pos[2]] += val
+            print("| ", p_field[curr_pos[0], curr_pos[1], curr_pos[2]])
+
+
+    # def get_max_freq(self) -> float:
+    #     max_f = 0.0
+    #     for i in range(self.count[None]):
+    #         current_f = self.data[i].freq
+    #         if current_f > max_f:
+    #             max_f = current_f
+    #     return max_f
 
     @classmethod
-    def from_dict(cls, sources: list[dict]) -> 'SourceManager':
-        manager = cls(len(sources))
+    def from_dict(cls, sources: list[dict], max_steps: int, dt: float) -> 'SourceManager':
+        manager = cls(max_sources = len(sources), max_steps = max_steps)
         for source in sources:
-            if source['type'] == 'Gauss':
-                manager.add_source(
-                    name='gauss_source',
-                    freq=source['freq'],
-                    amplitude=source['amp'],
-                )
-            elif source['type'] == 'Custom':
-                manager.add_source(
-                    name='custom_source',
-                    freq=None,
-                    amplitude=None,
-                )
+            waveform = cls._calculate_waveform(source, dt, max_steps)  # tu liczymy tablice cisnien
+            manager.add_source(
+                name=source.get('name'),
+                base_amp = 1.0,    # TODO to jest tymczasowo, pozniej do gui dodamy poziom glosnosci
+                waveform_array=waveform
+            )
         return manager
+
+    @staticmethod
+    def _calculate_waveform(source: dict, dt: float, max_steps: int) -> np.ndarray:
+        waveform = np.zeros(max_steps, dtype=np.float32)
+        t = np.arange(max_steps) * dt
+
+        if source['type'] == 'Gauss':
+            freq = source.get('freq')
+            sigma = np.sqrt(2 * np.log(2)) / (2 * np.pi * freq)
+            delay = 4 * sigma
+            waveform = np.exp(-((t - delay)**2) / (2 * sigma**2))
+
+        #TODO trzeba zrobic tez z wav
+        #elif source['type'] == 'Custom':
+            #trzeba zaladowac wav
+            #zrobic resample
+            #przyciac do dlugosci
+
+        for i in range(10):
+            print(f"Krok {i} (t={t[i]:.2e}): {waveform[i]:.10f}")
+
+
+        return waveform
+
 
 
     @classmethod
