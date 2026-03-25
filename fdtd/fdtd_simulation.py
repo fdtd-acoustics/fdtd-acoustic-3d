@@ -5,8 +5,6 @@ import taichi as ti
 import config
 from .source_manager import SourceManager
 
-#todo:konwencja w pytonie jest taka ze internal methody zacznymay od _ a publiczne normalnie
-
 @ti.data_oriented
 class FDTD_Simulation:
     def __init__(self, sound_speed: float, dx: float, dt: float, pml_thick: int,
@@ -78,6 +76,7 @@ class FDTD_Simulation:
 
             alpha_val = config.DEFAULT_ALPHA
             density_val = config.DEFAULT_DENSITY
+            beta_val = 0.0
 
             if (i >= self.pml_thick and i < self.Nx - self.pml_thick and
                     j >= self.pml_thick and j < self.Ny - self.pml_thick and
@@ -93,6 +92,8 @@ class FDTD_Simulation:
 
                 self._alpha_A[i, j, k] = self._calculate_alpha_A(self.sound_speed, alpha_val, density_val)
                 self._alpha_B[i, j, k] = self._calculate_alpha_B(self.sound_speed, alpha_val)
+
+                beta_val = self._beta_from_alpha(alpha_val)
 
             else:
                 #PML
@@ -120,9 +121,9 @@ class FDTD_Simulation:
                     self._alpha_A[i, j, k] = self._calculate_alpha_A(self.sound_speed, alpha_val, density_val)  # gestosc powietrza
                     self._alpha_B[i, j, k] = self._calculate_alpha_B(self.sound_speed, alpha_val)
 
-            k_val = self._k_field[i, j, k]
-            beta_val = self._beta_from_alpha(alpha_val)
+                beta_val = 0
 
+            k_val = self._k_field[i, j, k]
             self._bk_field[i, j, k] = (6.0 - ti.cast(k_val, ti.f32)) * self.courant * beta_val
 
             # brzegi maja zawsze cisnienie 0

@@ -20,7 +20,7 @@ class ReceiverManager:
     def add_receiver(self, x, y, z, name):
         idx = self.count[None]
         if idx < self.max_receivers:
-            self.pos[idx] = [x + config.PML_THICK, y + config.PML_THICK, z+ config.PML_THICK]
+            self.pos[idx] = [x, y, z]
             self.names.append(name)
             self.count[None] += 1
 
