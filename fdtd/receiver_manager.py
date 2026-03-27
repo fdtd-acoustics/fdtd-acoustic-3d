@@ -1,8 +1,6 @@
 import taichi as ti
 from scipy.io import wavfile
 import numpy as np
-from scipy.interpolate import interp1d
-import soundfile as sf
 
 @ti.data_oriented
 class ReceiverManager:
@@ -38,22 +36,6 @@ class ReceiverManager:
             pos = self.pos[i]
             self.history[i, step] = p_field[pos[0], pos[1], pos[2]]
 
-
-
-    # def save_to_wav(self, filename: str, index: int):
-    #     history_np = self.history.to_numpy()
-    #     pressure = history_np[index, :]
-    #
-    #     fs = int(1.0/self.dt)
-    #     pressure = pressure - np.mean(pressure)
-    #
-    #     max_val = np.max(np.abs(pressure))
-    #     if max_val > 0:
-    #         pressure = pressure / max_val # normalizacja
-    #
-    #     wavfile.write(filename, fs, pressure)
-    #     print(f"SAVED: {filename} (FS: {fs} Hz)")
-
     def save_to_wav(self, filename: str, index: int):
         history_np = self.history.to_numpy()
         pressure = history_np[index, :]
@@ -66,7 +48,7 @@ class ReceiverManager:
         if max_val > 0:
             pressure = pressure / max_val
 
-        pressure_to_save = pressure.astype(np.float32)
+        #pressure_int16 = np.int16(pressure * 32767)
 
-        wavfile.write(filename, fs, pressure_to_save)
-        print(f"SAVED: {filename} (FS: {fs} Hz) - Format: Float32")
+        wavfile.write(filename, fs, pressure)
+        print(f"SAVED: {filename} (FS: {fs} Hz)")

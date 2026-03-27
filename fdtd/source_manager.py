@@ -23,7 +23,7 @@ class SourceManager:
         self.waveforms = ti.field(dtype=ti.f32, shape=(max_sources, max_steps))
 
     @ti.kernel
-    def _copy_waveform(self, dest: ti.template(), src: ti.template(), source_idx: ti.i32, steps: ti.i32):
+    def _copy_waveform(self, dest: ti.template(), src: ti.types.ndarray(), source_idx: ti.i32, steps: ti.i32):
         for t in range(steps):
             dest[source_idx, t] = src[t]
 
@@ -31,17 +31,15 @@ class SourceManager:
         idx = self.count[None]
 
         if idx < self.max_sources:
-            self.info[idx].pos =  [30,30,30] #TODO tu bedziemy ustawiac z argumentow
+            self.info[idx].pos = [30, 30, 30]  # tymczasowo
 
-            temp_field = ti.field(dtype=ti.f32, shape=self.max_steps)
-            temp_field.from_numpy(waveform_array)
-
-            self._copy_waveform(self.waveforms, temp_field, idx, self.max_steps)
+            self._copy_waveform(self.waveforms, waveform_array, idx, self.max_steps)
 
             self.names.append(name)
-            self.count[None] +=1
+            self.count[None] += 1
         else:
             print(f"Error: Tried to add source '{name}' but reached max_sources limit")
+
 
     def set_pos(self, idx, x, y, z):
         if 0 <= idx < self.count[None]:
@@ -57,21 +55,14 @@ class SourceManager:
             p_field[curr_pos[0], curr_pos[1], curr_pos[2]] += val
 
 
-    # stare, nieuzywane
-
-    # def get_max_freq(self) -> float:
-    #     max_f = 0.0
-    #     for i in range(self.count[None]):
-    #         current_f = self.data[i].freq
-    #         if current_f > max_f:
-    #             max_f = current_f
-    #     return max_f
-
     @classmethod
     def from_dict(cls, sources: list[dict], max_steps: int, dt: float) -> 'SourceManager':
-        manager = cls(max_sources = len(sources), max_steps = max_steps)
+        manager = cls(max_sources=len(sources), max_steps=max_steps)
         for source in sources:
-            waveform = cls._calculate_waveform(source, dt, max_steps)  # tu liczymy tablice cisnien
+            waveform = cls._calculate_waveform(source, dt, max_steps)
+
+            waveform = np.ascontiguousarray(waveform, dtype=np.float32)
+
             manager.add_source(
                 name=source.get('name'),
                 waveform_array=waveform
@@ -151,7 +142,4 @@ class SourceManager:
         except Exception as e:
             print(f"File parsing error {file_path}: {e}")
             return 0.0
-
-
-
 
