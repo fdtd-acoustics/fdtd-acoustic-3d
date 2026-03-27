@@ -32,6 +32,7 @@ class SimulationBuilder:
 
     def compute_grid(self, sources_cfg: list[dict]) -> GridParams:
         max_freq = SourceManager.get_highest_frequency(sources = sources_cfg)
+        print(f"MAX FREQ: {max_freq}")
         wavelength = self._cfg.sound_speed / max_freq
 
         dx = wavelength / self._cfg.nodes_per_wavelength

@@ -2,7 +2,7 @@ import math
 import taichi as ti
 from scipy.io import wavfile
 import numpy as np
-import config
+from scipy.interpolate import interp1d
 
 
 @ti.data_oriented
@@ -17,8 +17,7 @@ class SourceManager:
         self.names = []
 
         self.info = ti.Struct.field({
-            "pos": ti.types.vector(3, ti.i32),
-            "base_amp": ti.f32,   # mozna podglosnic/sciszyc zrodlo
+            "pos": ti.types.vector(3, ti.i32)  # TODO to trzeba przerobic
         }, shape=self.max_sources)
 
         self.waveforms = ti.field(dtype=ti.f32, shape=(max_sources, max_steps))
@@ -28,22 +27,16 @@ class SourceManager:
         for t in range(steps):
             dest[source_idx, t] = src[t]
 
-    def add_source(self, name: str, waveform_array: np.ndarray, base_amp:ti.f32):
+    def add_source(self, name: str, waveform_array: np.ndarray):
         idx = self.count[None]
 
         if idx < self.max_sources:
-            self.info[idx].pos =  [0,0,0] #TODO tu bedziemy ustawiac z argumentow
-            self.info[idx].base_amp = base_amp
+            self.info[idx].pos =  [30,30,30] #TODO tu bedziemy ustawiac z argumentow
 
             temp_field = ti.field(dtype=ti.f32, shape=self.max_steps)
             temp_field.from_numpy(waveform_array)
 
             self._copy_waveform(self.waveforms, temp_field, idx, self.max_steps)
-
-            print("JUZ PO KOPIOWANIU NA GPU:")
-            for i in range(10):
-                val = self.waveforms[idx, i]
-                print(f"Krok {i}: {val:.10f}")
 
             self.names.append(name)
             self.count[None] +=1
@@ -60,11 +53,11 @@ class SourceManager:
     def update_sources(self, p_field: ti.template(), step:ti.i32):
         for i in range(self.count[None]):
             curr_pos = self.info[i].pos
-            val = self.waveforms[i, step]
-
+            val = self.waveforms[i, step] * 1000
             p_field[curr_pos[0], curr_pos[1], curr_pos[2]] += val
-            print("| ", p_field[curr_pos[0], curr_pos[1], curr_pos[2]])
 
+
+    # stare, nieuzywane
 
     # def get_max_freq(self) -> float:
     #     max_f = 0.0
@@ -81,7 +74,6 @@ class SourceManager:
             waveform = cls._calculate_waveform(source, dt, max_steps)  # tu liczymy tablice cisnien
             manager.add_source(
                 name=source.get('name'),
-                base_amp = 1.0,    # TODO to jest tymczasowo, pozniej do gui dodamy poziom glosnosci
                 waveform_array=waveform
             )
         return manager
@@ -93,19 +85,25 @@ class SourceManager:
 
         if source['type'] == 'Gauss':
             freq = source.get('freq')
+            amp = source.get('amp')
             sigma = np.sqrt(2 * np.log(2)) / (2 * np.pi * freq)
             delay = 4 * sigma
-            waveform = np.exp(-((t - delay)**2) / (2 * sigma**2))
+            waveform = amp * np.exp(-((t - delay)**2) / (2 * sigma**2))
 
-        #TODO trzeba zrobic tez z wav
-        #elif source['type'] == 'Custom':
-            #trzeba zaladowac wav
-            #zrobic resample
-            #przyciac do dlugosci
+        elif source['type'] == 'Custom':
+            filepath = source['filepath']
+            sample_rate, data = wavfile.read(filepath)
+            if len(data.shape) > 1:
+                data = data[:, 0]
 
-        for i in range(10):
-            print(f"Krok {i} (t={t[i]:.2e}): {waveform[i]:.10f}")
+            data = data.astype(np.float32) / (np.max(np.abs(data)) + 1e-9) # normalizacja
 
+            duration = len(data) / sample_rate   # trzeba dopasowac do dt
+            old_t = np.linspace(0, duration, len(data))
+
+            interpolator = interp1d(old_t, data, kind='linear', bounds_error=False, fill_value=0.0)
+
+            waveform = interpolator(t).astype(np.float32)
 
         return waveform
 
@@ -121,9 +119,9 @@ class SourceManager:
                 current_freq = float(source.get('freq', 0.0))
 
             elif source['type'] == 'Custom':
-                file_path = source.get('file_path')
+                file_path = source.get('filepath')
                 if file_path:
-                    current_freq = cls._analyze_wav_freq_max(file_path)
+                    current_freq = cls._analyze_wav_freq_max(file_path, threshold=0.01) # narazie tak na sztywno
 
             if current_freq > max_freq:
                 max_freq = current_freq
@@ -134,13 +132,14 @@ class SourceManager:
     @classmethod
     def _analyze_wav_freq_max(cls, file_path, threshold: float) -> float:
         try:
-            samplerate, data = wavfile.read(file_path)
+            sample_rate, data = wavfile.read(file_path)
             if len(data.shape) > 1:
                 data = data[:, 0]
 
             n = len(data) # ilosc próbek
-            fft_values = np.abs(np.fft.fft(data)) # to wartosci liniowe(nie decybele)
-            freqs = np.fft.rfftfreq(n, d=1 / samplerate)
+
+            fft_values = np.abs(np.fft.rfft(data)) # to wartosci liniowe(nie decybele)
+            freqs = np.fft.rfftfreq(n, d=1 / sample_rate)
 
             limit = threshold * np.max(fft_values) # pozbywamy sie najcichszych dzwiekow(slabo slyszalne a moze sie tam trafic wysoka czestotliowsc)
             # wysoka czestotliowsc moze doprowadzic do strasznie malego dx
