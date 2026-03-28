@@ -1,176 +1,50 @@
 import taichi as ti
-from config import N,COURANT_SQ, MATERIAL_PROPS,C,COURANT, SIGMA, AMPLITUDE, SRC_X, SRC_Y, DT, FRAME_DURATION, DELAY_GAUSS, print_config, ALPHA_MAX, PML_THICK
 import numpy as np
 import time
-import matplotlib.pyplot as plt
+import config
 
-ti.init(arch=ti.gpu)
-
-#macierze
-p_old = ti.field(ti.f32, shape=(N, N)) # macierz ciśnień, do niej wsadzane są najnowsze wartosci
-p_curr = ti.field(ti.f32, shape=(N, N)) # macierz ciśnień
-
-k_field = ti.field(dtype=ti.i32, shape=(N, N)) # macierz sasiadow
-bk_field = ti.field(dtype=ti.f32, shape=(N, N)) # macierz lokalnej admintacji brzegowej
-
-alpha_field = ti.field(dtype=ti.f32, shape=(N, N)) # macierz wspólczynnikow pochlaniania materialow (potrzebne do wyznaczenia alpha_A oraz alpha_B)
-alpha_A = ti.field(dtype=ti.f32, shape=(N , N)) # macierz tlumienia stratnego
-alpha_B = ti.field(dtype=ti.f32, shape=(N , N)) # macierz tlumienia lepkiego
-
-history = ti.field(dtype=ti.f32, shape=(1, 5000))
-
-# materialy
-brick_alpha, brick_density = MATERIAL_PROPS["brick"]
-air_alpha, air_density = MATERIAL_PROPS["air"]
-
-@ti.func
-def calculate_alpha_A(c, alpha, density):
-    return alpha * (density * c**2 + 1.0 / density)
-
-@ti.func
-def calculate_alpha_B(c, alpha):
-    return (c**2) * (alpha**2)
-
-@ti.func
-def beta_from_alpha(alpha):
-    Beta = 0.0
-    if alpha >= 1.0:  # otwarta przestrzeń
-        Beta = 1.0
-    elif alpha <= 0.0:    # idealna ściana
-        Beta = 0.0
-    else:
-        R = ti.sqrt(1.0 - alpha)
-        Beta = (1.0 - R) / (1.0 + R)
-
-    return Beta
+from generate_map import create_material_map
+from fdtd_simulation import FDTD_Simulation
 
 
+def render_frame(gui, sim, is_wall):
+    p_np = sim.get_current_pressure()
 
-@ti.kernel
-def generate_symulation_map():
-    for i,j in alpha_field: # domyslnie wszedzie 4 sąsiadów i otwarta przestrzen
-        alpha_field[i, j] = 0.0
-        alpha_A[i,j] = 0.0
-        alpha_B[i, j] = 0.0
+    # normalize
+    fixed_max = sim.amplitude * 0.5
+    p_normalized = p_np / fixed_max
+    gray_val = p_normalized * 0.5 + 0.5
+    gray_val = np.clip(gray_val, 0.0, 1.0)
 
-        count = 0
-        if i > 1: count += 1
-        if i < N - 2: count += 1
-        if j > 1: count += 1
-        if j < N - 2: count += 1
-        k_field[i, j] = count
+    img = np.dstack((gray_val, gray_val, gray_val))
 
-    for i,j in alpha_A: # sciany
-        if i == N - PML_THICK - 1 or j == PML_THICK or j == N - PML_THICK - 1:
-            alpha_field[i,j] = 0.0 #brick_alpha
-            alpha_A[i,j] = 0.0 #calculate_alpha_A(C, brick_alpha, brick_density)
-            alpha_B[i,j] = 0.0 # calculate_alpha_B(C, brick_alpha)
-        if i == PML_THICK:
-            alpha_field[i, j] = 0 #brick_alpha
-            alpha_A[i, j] =  0 # calculate_alpha_A(C, brick_alpha, brick_density)
-            alpha_B[i, j] =  0 #calculate_alpha_B(C, brick_alpha)
+    img[is_wall, 1] *= 0.3
+    img[is_wall, 2] *= 0.3
 
-
-    # tworzymy sciany pml
-    for i, j in alpha_A:
-        dist_x = 0.0
-        if i < PML_THICK:
-            dist_x = ti.cast(PML_THICK - i, ti.f32) / PML_THICK
-        elif i >= N - PML_THICK:
-            dist_x = ti.cast(i - (N - PML_THICK) + 1, ti.f32) / PML_THICK
-
-        dist_y = 0.0
-        if j < PML_THICK:
-            dist_y = ti.cast(PML_THICK - j, ti.f32) / PML_THICK
-        elif j >= N - PML_THICK:
-            dist_y = ti.cast(j - (N - PML_THICK) + 1, ti.f32) / PML_THICK
-
-        dist_final = ti.max(dist_x, dist_y)
-        if dist_final > 0.0:
-            alpha_val = ALPHA_MAX * (dist_final ** 3)
-            alpha_field[i,j] = alpha_val
-            alpha_A[i, j] = calculate_alpha_A(C, alpha_val, air_density)
-            alpha_B[i, j] = calculate_alpha_B(C,alpha_val)
-
-
-    for i,j in bk_field:
-        k_val = k_field[i, j]
-        # beta_val = beta_from_alpha(alpha_field[i, j])
-        bk_field[i, j] = 0.0
-        # if i < 2 or i >= N - 2 or j < 2 or j >= N - 2:
-        #     bk_field[i, j] = 0.1
-
-
-
-@ti.kernel
-def record_history(steps: int, p_now: ti.template()):
-        history[0, steps] = p_now[40,100]
-
-@ti.kernel
-def step(p_prev: ti.template(), p_now: ti.template(), steps: int):
-    for i,j in ti.ndrange((1, N - 1), (1, N - 1)):
-        k_val = k_field[i,j]
-        bk_val = bk_field[i,j]
-        alpha_a = alpha_A[i,j]
-        alpha_b = alpha_B[i,j]
-
-        w1 = 1.0 + bk_val + alpha_a/2 * DT + alpha_b * (DT**2)
-        w2 = COURANT_SQ * (p_now[i + 1, j] + p_now[i - 1, j] + p_now[i, j + 1] + p_now[i, j - 1])
-        w3 = (2.0 - k_val * COURANT_SQ) * p_now[i,j]
-        w4 = (bk_val - 1.0 + (alpha_a / 2.0) * DT) * p_prev[i,j]
-
-        p_prev[i, j] = (1.0 / w1) * (w2 + w3 + w4)
-
-    if DT * steps < (DT * DELAY_GAUSS) + 4 * SIGMA:
-        #ZRODLO
-        pulse = AMPLITUDE * ti.exp(- ((DT*steps - DT*DELAY_GAUSS)**2) / (2 * SIGMA**2))
-        p_prev[SRC_X, SRC_Y] += pulse # soft source
-
-
-def save_plot(current_step):
-    full_data = history.to_numpy()
-
-    valid_data = full_data[0, :current_step]
-
-    valid_data = valid_data - np.mean(valid_data)
-
-    max_abs = np.max(np.abs(valid_data))
-    if max_abs > 1e-12:
-        valid_data = valid_data / max_abs
-
-    plt.figure(figsize=(10, 4))
-    plt.plot(valid_data)
-    plt.title(f"Acoustic Signal - Step {current_step}")
-    plt.xlabel("Time Steps")
-    plt.ylabel("Normalized Pressure")
-    plt.grid(True, alpha=0.3)
-
-    plt.savefig("chart_test.png")
-    plt.close()
-    print(f"Saved: chart_test.png (samples: {len(valid_data)})")
+    gui.set_image(img)
+    gui.show()
 
 
 
 def main():
-    gui = ti.GUI("2d - fdtd (pml & neumann)", res=(N, N))
-    print_config()
+    ti.init(arch=ti.gpu)
 
-    generate_symulation_map()
-    for i in range(0,40):
-        print(f"{i, alpha_field[i,100]}")
-    buffers = [p_old, p_curr]
+    # 1. Create matrices
+    alpha_map, density_map = create_material_map()
+
+    # 2. FDTD engine initialization
+    sim = FDTD_Simulation(alpha_map, density_map)
+
+    # 3. GUI setup
+    gui = ti.GUI("2d - fdtd (pml & neumann)", res=(sim.N, sim.N))
+
+    final_alpha_map = sim.get_alpha_map()
+    is_wall = final_alpha_map > 0.001
 
     prev_time = time.time()
-
-    is_saved = False
-
-    steps = 0
-    accumulator = 0
-
-    alpha_map = alpha_field.to_numpy()
-    is_wall = alpha_map > 0.001
-
+    accumulator = 0.0
     is_paused = False
+
     while gui.running:
         if gui.get_event(ti.GUI.PRESS):
             if gui.event.key == ti.GUI.SPACE:
@@ -179,36 +53,13 @@ def main():
         now = time.time()
         delta_real_time = now - prev_time
         prev_time = now
+        accumulator += delta_real_time
 
-        accumulator+=delta_real_time
-        if(accumulator >= FRAME_DURATION):
+        if accumulator >= config.FRAME_DURATION:
             if not is_paused:
-                steps += 1
-                b_old = steps % 2
-                b_curr = (steps + 1) % 2
-                step(buffers[b_old], buffers[b_curr], steps)
+                sim.update()
 
-                record_history(steps, buffers[b_old])
-
-                if steps >5000 and not is_saved:
-                    save_plot(steps)
-                    is_saved = True
-
-            p_np = buffers[b_old].to_numpy()
-            max_val = np.abs(p_np).max()
-            fixed_max = AMPLITUDE * 0.5
-            #p_normalized = p_np / (max_val + 1e-8) # normalizujemy poniewaz chcemy uzyskac wartosci od -1 do 1
-            p_normalized = p_np / fixed_max
-            gray_val = p_normalized * 0.5 + 0.5 # uzyskujemy wartoci od 0 do 1
-
-            gray_val = np.clip(gray_val, 0.0, 1.0) # zabezpieczenie choc i tak juz wczesniej znormalizowane
-            img = np.dstack((gray_val, gray_val, gray_val))
-            img[is_wall, 1] *= 0.3 # zielony na 30%
-            img[is_wall, 2] *= 0.3 # niebieski na 30%
-
-            gui.set_image(img)
-            gui.show()
-
+            render_frame(gui, sim, is_wall)
             accumulator = 0
 
 
