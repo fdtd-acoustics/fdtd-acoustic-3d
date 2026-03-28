@@ -1,4 +1,4 @@
-PML_THICKNESS = 20 # pml thickness
+PML_THICKNESS = 30 # pml thickness
 ALPHA_MAX = 0.15 # maximum absorption coefficient
 
 SIZE_M = 20.0  # domain size [m]
@@ -6,13 +6,13 @@ DIM = 2  # dimensions (2D)
 SOUND_SPEED = 343.0   # speed of sound in air [m/s]
 
 FREQ_MAX = 1000.0 # maximum frequency of the wave [Hz]
-AMPLITUDE = 10.0 # peak amplitude of the acoustic pressure wave source
+AMPLITUDE = 100.0 # peak amplitude of the acoustic pressure wave source
 
 NODES_PER_WAVELENGTH = 10    # number of grid points per wavelength
 
 # source position
-SRC_X = 150
-SRC_Y = 150
+SRC_X = 350
+SRC_Y = 350
 
 #receiver
 REC_X = 30

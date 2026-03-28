@@ -42,6 +42,7 @@ class FDTD_Simulation:
         self._mat_alpha_field = ti.field(ti.f32, shape=(N_without_pml, N_without_pml))
         self._mat_density_field = ti.field(ti.f32, shape=(N_without_pml, N_without_pml))
 
+        # pressure
         self._p_prev = ti.field(ti.f32, shape=(self.N, self.N))
         self._p_curr = ti.field(ti.f32, shape=(self.N, self.N))
 
@@ -57,13 +58,14 @@ class FDTD_Simulation:
         self._alpha_field = ti.field(dtype=ti.f32, shape=(self.N, self.N))
 
         self.steps = 0
+        self.current_time = 0
 
         self.buffers = [self._p_prev, self._p_curr]
 
+        # initialize GPU fields with numpy data and boundary values
         self._prepare_data(alpha_map_np, density_map_np)
 
     # calculates the maximum stable time step (DT) to satisfy the CFL condition and prevent simulation instability
-
     def get_time_step(self, dimensions, dx, speed, safety_factor):
         courant_limit = 1.0 / math.sqrt(dimensions)
         return (dx / speed) * courant_limit * safety_factor
@@ -145,7 +147,7 @@ class FDTD_Simulation:
 
                 beta_val = 0
 
-            self._k_field[i, j] = alpha_val
+            self._alpha_field[i, j] = alpha_val
             k_val = self._k_field[i, j]
             self._bk_field[i, j] = (4.0 - ti.cast(k_val, ti.f32)) * self.courant * beta_val
 
@@ -181,6 +183,7 @@ class FDTD_Simulation:
         self._step(p_past, p_present, self.steps)
 
         self.steps += 1
+        self.current_time += self.dt
 
     def get_current_pressure(self):
         return self.buffers[self.steps % 2].to_numpy()
@@ -199,3 +202,5 @@ class FDTD_Simulation:
         print(f"Max Frequency:     {self.freq_max} Hz")
         print("-" * 30)
 
+    def get_time(self):
+        return self.current_time
