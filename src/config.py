@@ -18,6 +18,7 @@ SRC_Y = 350
 REC_X = 30
 REC_Y = 30
 MAX_STEPS = 10000
+RECEIVER_NAME = "mic1"
 
 SAFETY_FACTOR = 0.99 # stability safety factor
 

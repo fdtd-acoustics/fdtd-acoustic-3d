@@ -1,5 +1,3 @@
-from taichi import j
-
 import config
 import numpy as np
 def create_material_map():
@@ -13,14 +11,17 @@ def create_material_map():
     density_map = np.full((N, N), density_air, dtype=np.float32)
 
     # example obstacle
-    alpha_map[201:202, 0:250] = alpha_wood
-    density_map[201:202, 0:250] = density_wood
+    # alpha_map[201:202, 0:250] = alpha_wood
+    # density_map[201:202, 0:250] = density_wood
+    #
+    # alpha_map[201:202, 254:320] = alpha_wood
+    # density_map[201:202, 254:320] = density_wood
+    #
+    # alpha_map[201:202, 325:499] = alpha_wood
+    # density_map[201:202, 325:499] = density_wood
 
-    alpha_map[201:202, 254:320] = alpha_wood
-    density_map[201:202, 254:320] = density_wood
-
-    alpha_map[201:202, 325:499] = alpha_wood
-    density_map[201:202, 325:499] = density_wood
+    alpha_map[201:202, 0:500] = alpha_wood
+    density_map[201:202, 0:500] = density_wood
 
 
     return alpha_map, density_map

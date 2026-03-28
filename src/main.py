@@ -53,6 +53,7 @@ def main():
 
     # 2. FDTD engine initialization
     sim = FDTD_Simulation(alpha_map, density_map)
+    sim.print_config()
 
     # 3. GUI setup
     gui = ti.GUI("2d - fdtd (pml & neumann)", res=(sim.N, sim.N))

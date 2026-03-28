@@ -1,9 +1,9 @@
-from doctest import NORMALIZE_WHITESPACE
-
 import config
 import taichi as ti
 import math
 import numpy as np
+from scipy.io import wavfile
+import matplotlib.pyplot as plt
 
 
 @ti.data_oriented
@@ -19,13 +19,15 @@ class FDTD_Simulation:
         self.src_y = config.SRC_Y
         self.amplitude = config.AMPLITUDE
         self.freq_max = config.FREQ_MAX
-        self.sigma = math.sqrt(2 * math.log(2)) / (2 * math.pi * self.freq_max)
-        self.delay = 4 * self.sigma
+        self.sigma = math.sqrt(2 * math.log(2)) / (2 * math.pi * self.freq_max) # standard deviation (SIGMA) calculated to fit the maximum frequency
+        self.delay = 4 * self.sigma # delay to ensure the pulse starts smoothly from near-zero amplitude
 
         # receiver
         self.rec_x = config.REC_X
         self.rec_y = config.REC_Y
-        self.history = ti.field(dtype=ti.f32, shape=(1, config.MAX_STEPS))
+        self.max_steps = config.MAX_STEPS
+        self.history = ti.field(dtype=ti.f32, shape=(1, self.max_steps))
+        self.rec_saved = False # true if the simulation data has been exported to WAV
 
         wavelength = self.sound_speed / self.freq_max # wavelength [m]
         self.dx = wavelength / config.NODES_PER_WAVELENGTH # spatial step [m]
@@ -173,7 +175,7 @@ class FDTD_Simulation:
 
         if self.dt * steps < (self.dt * self.delay) + 4 * self.sigma:
             pulse = self.amplitude * ti.exp(- ((self.dt * steps - self.dt * self.delay) ** 2) / (2 * self.sigma ** 2))
-            p_prev[self.src_x, self.src_y] += pulse  # soft source
+            p_prev[self.src_x + self.pml_thickness, self.src_y + self.pml_thickness] += pulse  # soft source
 
 
     def update(self):
@@ -181,6 +183,7 @@ class FDTD_Simulation:
         p_present = self.buffers[(self.steps + 1) % 2]
 
         self._step(p_past, p_present, self.steps)
+        self._record_step()
 
         self.steps += 1
         self.current_time += self.dt
@@ -204,3 +207,54 @@ class FDTD_Simulation:
 
     def get_time(self):
         return self.current_time
+
+    def _record_step(self):
+        if self.steps < self.max_steps:
+            p_curr = self.buffers[self.steps % 2]
+            self._record_history_kernel(p_curr, self.steps)
+        elif not self.rec_saved:
+            self.save_to_wav(config.RECEIVER_NAME, 0)
+            self.plot_history()
+            self.rec_saved = True
+
+    @ti.kernel
+    def _record_history_kernel(self, p_curr: ti.template(), step: ti.i32):
+        self.history[0, step] = p_curr[self.rec_x + self.pml_thickness,
+                                       self.rec_y + self.pml_thickness]
+
+    def save_to_wav(self, filename: str, index: int):
+        if not filename.endswith('.wav'):
+            filename += '.wav'
+
+        history_np = self.history.to_numpy()
+        pressure = history_np[index, :]
+
+        fs = int(1.0 / self.dt)
+        pressure = pressure - np.mean(pressure)
+
+        max_val = np.max(np.abs(pressure))
+        if max_val > 0:
+            pressure = pressure / max_val  # normalizacja
+
+        pressure_int16 = (pressure * 32767).astype(np.int16)
+
+        wavfile.write(filename, fs, pressure_int16)
+        print(f"SAVED: {filename} (FS: {fs} Hz)")
+
+    def plot_history(self):
+        history_np = self.history.to_numpy()
+        pressure = history_np[0, :self.steps]
+
+        time_axis = np.linspace(0, self.steps * self.dt, len(pressure))
+
+        plt.figure(figsize=(10, 4))
+        plt.plot(time_axis, pressure, color='royalblue', linewidth=1)
+
+        plt.title(f"Acoustic Pressure at {config.RECEIVER_NAME}")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Pressure [Pa]")
+        plt.grid(True, alpha=0.3)
+
+        plot_filename = f"{config.RECEIVER_NAME}_2D_plot.png"
+        plt.savefig(plot_filename)
+        plt.show()
