@@ -1,6 +1,8 @@
 import taichi as ti
 from scipy.io import wavfile
 import numpy as np
+import config
+import os
 
 @ti.data_oriented
 class ReceiverManager:
@@ -37,6 +39,14 @@ class ReceiverManager:
             self.history[i, step] = p_field[pos[0], pos[1], pos[2]]
 
     def save_to_wav(self, filename: str, index: int):
+        directory = config.WAV_DIR
+        os.makedirs(directory, exist_ok=True)
+
+        if not filename.endswith('.wav'):
+            filename += '.wav'
+
+        file_path = os.path.join(directory, filename)
+
         history_np = self.history.to_numpy()
         pressure = history_np[index, :]
 
@@ -48,7 +58,7 @@ class ReceiverManager:
         if max_val > 0:
             pressure = pressure / max_val
 
-        #pressure_int16 = np.int16(pressure * 32767)
+        pressure_int16 = (pressure * 32767).astype(np.int16)
 
-        wavfile.write(filename, fs, pressure)
+        wavfile.write(file_path, fs, pressure_int16)
         print(f"SAVED: {filename} (FS: {fs} Hz)")
