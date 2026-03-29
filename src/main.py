@@ -11,26 +11,41 @@ def render_frame(gui, sim, is_wall):
     pml = sim.pml_thickness
     p_np = sim.get_current_pressure()
 
-    # normalize
-    fixed_max = sim.amplitude * 0.1
-    p_normalized = p_np / fixed_max
-    gray_val = p_normalized * 0.5 + 0.5
-    gray_val = np.clip(gray_val, 0.0, 1.0)
+    # --- Linear Scalling ---
+    # fixed_max = sim.amplitude * 0.1
+    # p_normalized = p_np / fixed_max
+    # gray_val = p_normalized * 0.5 + 0.5
+    # gray_val = np.clip(gray_val, 0.0, 1.0)
+
+    # --- Logarithmic Scaling ---
+    p0 = 2e-5 # # reference pressure for the human threshold of hearing (20 micropascals)
+    epsilon = 1e-10 # safety offset to prevent log10(0) math errors during silenc
+    max_db = 100.0  # the range we want to see
+
+    p_abs = np.abs(p_np) + epsilon
+    spl_db = 20.0 * np.log10(p_abs / p0)
+    spl_normalized = np.clip(spl_db / max_db, 0.0, 1.0)
+    p_signed_log = np.sign(p_np) * spl_normalized
+
+    gray_val = p_signed_log * 0.5 + 0.5
+
 
     img = np.dstack((gray_val, gray_val, gray_val))
 
-    img[is_wall, 1] *= 0.3
-    img[is_wall, 2] *= 0.3
-
     pml_mask = np.zeros((sim.N, sim.N), dtype=bool)
-    pml_mask[:pml-3, :] = True
-    pml_mask[-pml+3:, :] = True
-    pml_mask[:, :pml-3] = True
-    pml_mask[:, -pml+3:] = True
+    pml_mask[:pml, :] = True
+    pml_mask[-pml:, :] = True
+    pml_mask[:, :pml] = True
+    pml_mask[:, -pml:] = True
 
     img[pml_mask, 0] *= 0.6
     img[pml_mask, 1] *= 0.4
     img[pml_mask, 2] *= 0.8
+
+    pure_wall_mask = is_wall & ~pml_mask
+
+    img[pure_wall_mask, 1] *= 0.3
+    img[pure_wall_mask, 2] *= 0.3
 
     gui.set_image(img)
 

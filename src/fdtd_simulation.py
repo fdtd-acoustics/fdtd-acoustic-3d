@@ -48,15 +48,19 @@ class FDTD_Simulation:
         self._p_prev = ti.field(ti.f32, shape=(self.N, self.N))
         self._p_curr = ti.field(ti.f32, shape=(self.N, self.N))
 
+        # matrix representing the count of neighboring nodes for each grid point
         self._k_field = ti.field(dtype=ti.i32, shape=(self.N, self.N))
         self._bk_field = ti.field(dtype=ti.f32, shape=(self.N, self.N))
 
+        # material absorption and density distribution across the grid
         self.alpha_field = ti.field(dtype=ti.f32, shape=(self.N, self.N))
         self.density_field = ti.field(dtype=ti.f32, shape=(self.N, self.N))
 
+        # pre-calculated PML coefficients for edge damping
         self._alpha_A = ti.field(dtype=ti.f32, shape=(self.N, self.N))
         self._alpha_B = ti.field(dtype=ti.f32, shape=(self.N, self.N))
 
+        # effective absorption field used in the wave equation update kernel
         self._alpha_field = ti.field(dtype=ti.f32, shape=(self.N, self.N))
 
         self.steps = 0
@@ -102,6 +106,7 @@ class FDTD_Simulation:
     @ti.kernel
     def _prepare_simulation_data(self):
         for i, j in self.alpha_field:
+            # neighborhood and boundary check
             count = 0
             if i > 1: count += 1
             if i < self.N - 2: count += 1
@@ -110,10 +115,12 @@ class FDTD_Simulation:
             self._k_field[i, j] = count
             self._bk_field[i, j] = 0.0
 
+            # initialize default material properties
             alpha_val = config.DEFAULT_ALPHA
             density_val = config.DEFAULT_DENSITY
             beta_val = 0.0
 
+            # Interior Simulation Area (Physical Domain)
             if (i >= self.pml_thickness and i < self.N - self.pml_thickness and
                     j >= self.pml_thickness and j < self.N - self.pml_thickness):
                 ii = i - self.pml_thickness
@@ -127,7 +134,9 @@ class FDTD_Simulation:
 
                 beta_val = self._beta_from_alpha(alpha_val)
 
+            # External Absorbing Layers (PML Zone)
             else:
+                # calculate normalized distance into the PML layer for X and Y axes
                 dist_x = 0.0
                 if i < self.pml_thickness:
                     dist_x = ti.cast(self.pml_thickness - i, ti.f32) / self.pml_thickness
@@ -222,6 +231,7 @@ class FDTD_Simulation:
         self.history[0, step] = p_curr[self.rec_x + self.pml_thickness,
                                        self.rec_y + self.pml_thickness]
 
+
     def save_to_wav(self, filename: str, index: int):
         if not filename.endswith('.wav'):
             filename += '.wav'
@@ -234,12 +244,14 @@ class FDTD_Simulation:
 
         max_val = np.max(np.abs(pressure))
         if max_val > 0:
-            pressure = pressure / max_val  # normalizacja
+            pressure = pressure / max_val
 
         pressure_int16 = (pressure * 32767).astype(np.int16)
 
         wavfile.write(filename, fs, pressure_int16)
         print(f"SAVED: {filename} (FS: {fs} Hz)")
+
+
 
     def plot_history(self):
         history_np = self.history.to_numpy()

@@ -1,5 +1,5 @@
 PML_THICKNESS = 30 # pml thickness
-ALPHA_MAX = 0.15 # maximum absorption coefficient
+ALPHA_MAX = 0.30 # maximum absorption coefficient
 
 SIZE_M = 20.0  # domain size [m]
 DIM = 2  # dimensions (2D)
