@@ -26,7 +26,8 @@ class FDTD_Simulation:
         self.Ny = material_core.shape[1] + self.pml_thick*2
         self.Nz = material_core.shape[2] + self.pml_thick*2
 
-        self.steps = 0
+        self._steps = 0
+        self._current_time = 0
 
         self._alpha_A = ti.field(dtype=ti.f32, shape=(self.Nx, self.Ny, self.Nz))
         self._alpha_B = ti.field(dtype=ti.f32, shape=(self.Nx, self.Ny, self.Nz))
@@ -154,14 +155,22 @@ class FDTD_Simulation:
 
 
     def update(self):
-        p_past = self.buffers[self.steps % 2]
-        p_present = self.buffers[(self.steps + 1) % 2]
+        p_past = self.buffers[self._steps % 2]
+        p_present = self.buffers[(self._steps + 1) % 2]
 
-        self._step(p_past, p_present, self.steps)
-        self.source_manager.update_sources(p_past, self.steps) # ZRODLO
-        self.receiver_manager.update_receivers(p_past, self.steps) # MIKROFONY
-        self.steps += 1
+        self._step(p_past, p_present, self._steps)
+        self.source_manager.update_sources(p_past, self._steps) # ZRODLO
+        self.receiver_manager.update_receivers(p_past, self._steps) # MIKROFONY
+        self._steps += 1
+        self._current_time += self.dt
 
 
     def get_current_pressure(self):
-        return self.buffers[self.steps % 2]
+        return self.buffers[self._steps % 2]
+
+    def get_time(self):
+        return self._current_time
+
+    def get_steps(self):
+        return self._steps
+
