@@ -3,6 +3,7 @@ from scipy.io import wavfile
 import numpy as np
 import config
 import os
+import matplotlib.pyplot as plt
 
 @ti.data_oriented
 class ReceiverManager:
@@ -29,7 +30,12 @@ class ReceiverManager:
         if step < self.max_steps:
             self.record_step_kernel(p_field, step)
         elif self.saved ==0:             # to jest tymczasowo
-            self.save_to_wav("mik1.wav", 0)
+            self.save_to_wav("mik4", 0)
+            self.save_plot("mik4", 0)
+            self.save_to_wav("src1", 1)
+            self.save_plot("src1", 1)
+            self.save_to_wav("mic5", 2)
+            self.save_plot("mic5", 2)
             self.saved = 1
 
     @ti.kernel
@@ -61,4 +67,41 @@ class ReceiverManager:
         pressure_int16 = (pressure * 32767).astype(np.int16)
 
         wavfile.write(file_path, fs, pressure_int16)
-        print(f"SAVED: {filename} (FS: {fs} Hz)")
+        print(f"WAV SAVED: {filename} (FS: {fs} Hz)")
+
+    def save_plot(self, filename: str, index: int):
+        directory = config.PLOT_DIR
+        os.makedirs(directory, exist_ok=True)
+
+        if not filename.endswith('.png'):
+            filename += '.png'
+
+        file_path = os.path.join(directory, filename)
+
+        history_np = self.history.to_numpy()
+        pressure = history_np[index, :]
+
+        pressure = pressure - np.mean(pressure)
+
+        max_val = np.max(np.abs(pressure))
+
+        if max_val > 0:
+            pressure = pressure / max_val
+
+        time_axis = np.arange(len(pressure)) * self.dt
+
+        plt.figure(figsize=(10, 4))
+        plt.plot(time_axis, pressure, color='#1f77b4', linewidth=1)
+
+        plt.title(f"Pressure Signal - {filename} (Normalized)")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Amplitude")
+
+        plt.ylim(-1.1, 1.1)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+
+        plt.savefig(file_path, dpi=150)
+        plt.close()
+
+        print(f"PLOT SAVED: {file_path}")
