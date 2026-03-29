@@ -29,13 +29,16 @@ class ReceiverManager:
     def update_receivers(self, p_field: ti.template(), step: ti.i32):
         if step < self.max_steps:
             self.record_step_kernel(p_field, step)
-        elif self.saved ==0:             # to jest tymczasowo
-            self.save_to_wav("mik4", 0)
-            self.save_plot("mik4", 0)
-            self.save_to_wav("src1", 1)
-            self.save_plot("src1", 1)
-            self.save_to_wav("mic5", 2)
-            self.save_plot("mic5", 2)
+        elif self.saved ==0:
+            full_history = self.history.to_numpy()
+
+            for i in range(self.count[None]):
+                name = self.names[i]
+                data = full_history[i, :]
+
+                self.save_to_wav(name, data)
+                self.save_plot(name, data)
+
             self.saved = 1
 
     @ti.kernel
@@ -44,21 +47,18 @@ class ReceiverManager:
             pos = self.pos[i]
             self.history[i, step] = p_field[pos[0], pos[1], pos[2]]
 
-    def save_to_wav(self, filename: str, index: int):
+    def save_to_wav(self, filename: str, pressure_data: np.ndarray):
         directory = config.WAV_DIR
         os.makedirs(directory, exist_ok=True)
 
         if not filename.endswith('.wav'):
             filename += '.wav'
-
         file_path = os.path.join(directory, filename)
-
-        history_np = self.history.to_numpy()
-        pressure = history_np[index, :]
 
         fs = int(1.0 / self.dt)
 
-        pressure = pressure - np.mean(pressure)
+        pressure = pressure_data.copy()
+        pressure -= np.mean(pressure)
 
         max_val = np.max(np.abs(pressure))
         if max_val > 0:
@@ -69,7 +69,7 @@ class ReceiverManager:
         wavfile.write(file_path, fs, pressure_int16)
         print(f"WAV SAVED: {filename} (FS: {fs} Hz)")
 
-    def save_plot(self, filename: str, index: int):
+    def save_plot(self, filename: str, pressure_data: np.ndarray):
         directory = config.PLOT_DIR
         os.makedirs(directory, exist_ok=True)
 
@@ -78,10 +78,8 @@ class ReceiverManager:
 
         file_path = os.path.join(directory, filename)
 
-        history_np = self.history.to_numpy()
-        pressure = history_np[index, :]
-
-        pressure = pressure - np.mean(pressure)
+        pressure = pressure_data.copy()
+        pressure -= np.mean(pressure)
 
         max_val = np.max(np.abs(pressure))
 

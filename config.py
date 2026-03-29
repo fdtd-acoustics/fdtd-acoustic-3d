@@ -8,7 +8,7 @@ from pathlib import Path
 
 # === physics ===
 SOUND_SPEED = 343.0
-NODES_PER_WAVELENGTH = 20
+NODES_PER_WAVELENGTH = 10
 DIM = 3
 SAFETY_FACTOR = 0.95
 

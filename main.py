@@ -27,9 +27,9 @@ def run_pipeline(cfg: dict) -> None:
     source_manager = SourceManager.from_dict(cfg['sources'], max_steps, grid.dt ) #TODO tu trzeba bedzie tez przekazac tablice position i od razu przy dodawaniu zrodel ustawiac
     source_manager.set_pos(0, 30, 30, 30)  # nie uwzglednia pml
     receiver_manager = ReceiverManager(5, 20000, grid.dt)
-    receiver_manager.add_receiver(35,31,32, "mik3") # nie uwzilednia pmla
-    receiver_manager.add_receiver(30, 30, 30, "src2")  # nie uwzilednia pmla
-    receiver_manager.add_receiver(22, 22, 22, "mic5")  # nie uwzilednia pmla
+    receiver_manager.add_receiver(35,31,32, "mik1") # nie uwzilednia pmla
+    receiver_manager.add_receiver(30, 30, 30, "src")  # nie uwzilednia pmla
+    receiver_manager.add_receiver(22, 22, 22, "mic2")  # nie uwzilednia pmla
     fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
 
 
