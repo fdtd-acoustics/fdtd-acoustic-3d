@@ -5,7 +5,7 @@ import taichi as ti
 import trimesh
 
 import config
-from fdtd import FDTD_Simulation, SourceManager
+from fdtd import FDTD_Simulation, SourceManager, ReceiverManager
 from voxelization import Voxelizer
 
 from .grid_params import GridParams
@@ -26,12 +26,13 @@ def _fill_material_kernel(
 class SimulationBuilder:
     """Main Builder which gives access to simulation building methods"""
 
-    def __init__(self, cfg: SimulationConfig, source_manager: SourceManager):
+    def __init__(self, cfg: SimulationConfig):
         self._cfg = cfg
-        self._source_manager = source_manager
+        self._source_manager = None
 
-    def compute_grid(self) -> GridParams:
-        max_freq = self._source_manager.get_max_freq()
+    def compute_grid(self, sources_cfg: list[dict]) -> GridParams:
+        max_freq = SourceManager.get_highest_frequency(sources = sources_cfg)
+        print(f"MAX FREQ: {max_freq}")
         wavelength = self._cfg.sound_speed / max_freq
 
         dx = wavelength / self._cfg.nodes_per_wavelength
@@ -56,7 +57,7 @@ class SimulationBuilder:
         )
         voxelizer.load_scene()
 
-    def build_fdtd(self, grid: GridParams) -> FDTD_Simulation:
+    def build_fdtd(self, grid: GridParams, source_manager: SourceManager, receiver_manager: ReceiverManager) -> FDTD_Simulation:
         """Builds FDTD_Simulation"""
         material_core = self._prepare_material_core()
         return FDTD_Simulation(
@@ -66,7 +67,8 @@ class SimulationBuilder:
             pml_thick = self._cfg.pml_thick,
             alpha_max= self._cfg.alpha_max,
             safety_factor = self._cfg.safety_factor,
-            sources=self._source_manager,
+            source_manager=source_manager,
+            receiver_manager = receiver_manager,
             material_core=material_core,
         )
 

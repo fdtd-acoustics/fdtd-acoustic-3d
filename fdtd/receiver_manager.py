@@ -1,7 +1,9 @@
 import taichi as ti
-import config
 from scipy.io import wavfile
 import numpy as np
+import config
+import os
+import matplotlib.pyplot as plt
 
 @ti.data_oriented
 class ReceiverManager:
@@ -27,8 +29,16 @@ class ReceiverManager:
     def update_receivers(self, p_field: ti.template(), step: ti.i32):
         if step < self.max_steps:
             self.record_step_kernel(p_field, step)
-        elif self.saved ==0:             # to jest tymczasowo
-            self.save_to_wav("Test.wav", 0)
+        elif self.saved ==0:
+            full_history = self.history.to_numpy()
+
+            for i in range(self.count[None]):
+                name = self.names[i]
+                data = full_history[i, :]
+
+                self.save_to_wav(name, data)
+                self.save_plot(name, data)
+
             self.saved = 1
 
     @ti.kernel
@@ -37,16 +47,59 @@ class ReceiverManager:
             pos = self.pos[i]
             self.history[i, step] = p_field[pos[0], pos[1], pos[2]]
 
-    def save_to_wav(self, filename: str, index: int):
-        history_np = self.history.to_numpy()
-        pressure = history_np[index, :]
+    def save_to_wav(self, filename: str, pressure_data: np.ndarray):
+        directory = config.WAV_DIR
+        os.makedirs(directory, exist_ok=True)
 
-        fs = int(1.0/self.dt)
-        pressure = pressure - np.mean(pressure)
+        if not filename.endswith('.wav'):
+            filename += '.wav'
+        file_path = os.path.join(directory, filename)
+
+        fs = int(1.0 / self.dt)
+
+        pressure = pressure_data.copy()
+        pressure -= np.mean(pressure)
 
         max_val = np.max(np.abs(pressure))
         if max_val > 0:
-            pressure = pressure / max_val # normalizacja
+            pressure = pressure / max_val
 
-        wavfile.write(filename, fs, pressure)
-        print(f"SAVED: {filename} (FS: {fs} Hz)")
+        pressure_int16 = (pressure * 32767).astype(np.int16)
+
+        wavfile.write(file_path, fs, pressure_int16)
+        print(f"WAV SAVED: {filename} (FS: {fs} Hz)")
+
+    def save_plot(self, filename: str, pressure_data: np.ndarray):
+        directory = config.PLOT_DIR
+        os.makedirs(directory, exist_ok=True)
+
+        if not filename.endswith('.png'):
+            filename += '.png'
+
+        file_path = os.path.join(directory, filename)
+
+        pressure = pressure_data.copy()
+        pressure -= np.mean(pressure)
+
+        max_val = np.max(np.abs(pressure))
+
+        if max_val > 0:
+            pressure = pressure / max_val
+
+        time_axis = np.arange(len(pressure)) * self.dt
+
+        plt.figure(figsize=(10, 4))
+        plt.plot(time_axis, pressure, color='#1f77b4', linewidth=1)
+
+        plt.title(f"Pressure Signal - {filename} (Normalized)")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Amplitude")
+
+        plt.ylim(-1.1, 1.1)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+
+        plt.savefig(file_path, dpi=150)
+        plt.close()
+
+        print(f"PLOT SAVED: {file_path}")

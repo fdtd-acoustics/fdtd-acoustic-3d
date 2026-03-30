@@ -10,7 +10,7 @@ from pathlib import Path
 SOUND_SPEED = 343.0
 NODES_PER_WAVELENGTH = 10
 DIM = 3
-SAFETY_FACTOR = 0.99
+SAFETY_FACTOR = 0.95
 
 
 # === Materials ===
@@ -31,3 +31,7 @@ ROOT_DIR = Path(__file__).parent
 SCENES_DIR = ROOT_DIR / "scenes"
 SCENES_MODELS_DIR = SCENES_DIR / "models"
 SCENES_OUT_DIR = SCENES_DIR / "output"
+
+RESULTS_DIR = "results"
+WAV_DIR  = f"{RESULTS_DIR}/signals"
+PLOT_DIR = f"{RESULTS_DIR}/plots"
