@@ -7,7 +7,6 @@ from visualization import SceneRenderer, Simulation
 from visualization.render_loop import RenderLoop
 from visualization.vis_config import MEMORY_LIMIT_GB
 
-
 def run_pipeline(cfg: dict) -> None:
     sim_config = SimulationConfig.from_dict(cfg)
 
@@ -23,13 +22,13 @@ def run_pipeline(cfg: dict) -> None:
     #tutaj bedziemy dorzucac stawianie Sourcow, ale ten sam renderer i powinno byc git
     #po prostu mozemy stworzyc cos na wzor RenderLoopa doslownie tylko inne rzeczy bedzie robil
 
-    max_steps = 10000 # pozniej w gui bedzie to zdobywac
-    source_manager = SourceManager.from_dict(cfg['sources'], max_steps, grid.dt ) #TODO tu trzeba bedzie tez przekazac tablice position i od razu przy dodawaniu zrodel ustawiac
-    source_manager.set_pos(0, 30, 30, 30)  # nie uwzglednia pml
-    receiver_manager = ReceiverManager(5, 20000, grid.dt)
-    receiver_manager.add_receiver(35,31,32, "mik1") # nie uwzilednia pmla
-    receiver_manager.add_receiver(30, 30, 30, "src")  # nie uwzilednia pmla
-    receiver_manager.add_receiver(22, 22, 22, "mic2")  # nie uwzilednia pmla
+    max_steps = 20000 # pozniej w gui bedzie to zdobywac
+    source_manager = SourceManager.build_source_manager(cfg['sources'], max_steps, grid.dt ) #TODO tu trzeba bedzie tez przekazac tablice position i od razu przy dodawaniu zrodel ustawiac
+    source_manager.set_pos(0, 50, 50, 50)  # nie uwzglednia pml
+    receiver_manager = ReceiverManager(2, max_steps, grid.dt)
+    receiver_manager.add_receiver(100,100,100, "mik1") # nie uwzilednia pmla
+    #receiver_manager.add_receiver(30, 30, 30, "src")  # nie uwzilednia pmla
+    #receiver_manager.add_receiver(22, 22, 22, "mic2")  # nie uwzilednia pmla
     fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
 
 

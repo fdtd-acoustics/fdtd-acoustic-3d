@@ -16,9 +16,7 @@ class SourceManager:
 
         self.names = []
 
-        self.info = ti.Struct.field({
-            "pos": ti.types.vector(3, ti.i32)  # TODO to trzeba przerobic
-        }, shape=self.max_sources)
+        self.pos = ti.Vector.field(3, dtype=ti.i32, shape=self.max_sources)
 
         self.waveforms = ti.field(dtype=ti.f32, shape=(max_sources, max_steps))
 
@@ -31,7 +29,7 @@ class SourceManager:
         idx = self.count[None]
 
         if idx < self.max_sources:
-            self.info[idx].pos = [30, 30, 30]  # tymczasowo
+            self.pos[idx] = [30, 30, 30]  # tymczasowo
 
             self._copy_waveform(self.waveforms, waveform_array, idx, self.max_steps)
 
@@ -43,20 +41,20 @@ class SourceManager:
 
     def set_pos(self, idx, x, y, z):
         if 0 <= idx < self.count[None]:
-            self.info[idx].pos = [int(x), int(y), int(z)]
+            self.pos[idx] = [int(x), int(y), int(z)]
         else:
             print(f"ERROR:  {idx}")
 
     @ti.kernel
     def update_sources(self, p_field: ti.template(), step:ti.i32):
         for i in range(self.count[None]):
-            curr_pos = self.info[i].pos
-            val = self.waveforms[i, step] * 1000
+            curr_pos = self.pos[i]
+            val = self.waveforms[i, step]
             p_field[curr_pos[0], curr_pos[1], curr_pos[2]] += val
 
 
     @classmethod
-    def from_dict(cls, sources: list[dict], max_steps: int, dt: float) -> 'SourceManager':
+    def build_source_manager(cls, sources: list[dict], max_steps: int, dt: float) -> 'SourceManager':
         manager = cls(max_sources=len(sources), max_steps=max_steps)
         for source in sources:
             waveform = cls._calculate_waveform(source, dt, max_steps)
