@@ -154,13 +154,8 @@ class Voxelizer:
             aligned_verts = verts + offset_vector
 
             # Mesh Colors for materials
-            if "wall" in geom_name.lower():
-                color = [0.5, 0.5, 0.5]
-            elif "metal" in geom_name.lower():
-                color = [0.1, 0.7, 0.1]
-            else:
-                color = [0.8, 0.8, 0.8]
-
+            material_id = self.get_material_id(geom_name)
+            color = config.MATERIAL_MAP.get(material_id, config.MATERIAL_MAP[config.DEFAULT_MATERIAL_ID])["color"]
             vert_colors = np.tile(color, (len(aligned_verts), 1))
 
             self.mesh_vertices.append(aligned_verts)

@@ -23,8 +23,9 @@ def show_taichi_3d():
 
     # Material Colors
     colors = np.zeros((num_particles, 3), dtype=np.float32)
-    colors[space_matrix[base_mask] == 1] = [0.5, 0.5, 0.5]
-    colors[space_matrix[base_mask] == 2] = [0.1, 0.7, 0.1]
+    for mat_id, mat_info in config.MATERIAL_MAP.items():
+        if "color" in mat_info:
+            colors[space_matrix[base_mask] == mat_id] = mat_info["color"]
 
     pos_field = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
     color_field = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)

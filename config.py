@@ -17,9 +17,9 @@ SAFETY_FACTOR = 0.95
 #TODO:: to jest to o czym gadalismy - prawdopodobnie bedzie do zmiany
 
 MATERIAL_MAP: dict[int, dict] = {
-    0: {"name": "air",   "alpha": 0.0, "density": 1.225},
-    1: {"name": "wall",  "alpha": 0.0, "density": 1.225},  # takie byly poprzednie wartosc: 0.5 #1000.0
-    2: {"name": "metal", "alpha": 0.0, "density": 1.225}, # takie byly poprzednie wartosc: 0.1 500.0
+    0: {"name": "air",   "alpha": 0.0, "density": 1.225, "color": [0.0, 0.0, 0.0]},     # don't mind air color xd, it isn't used for drawing
+    1: {"name": "wall",  "alpha": 0.0, "density": 1.225, "color": [0.5, 0.5, 0.5]},     # previous: alpha:0.5 density:1000.0
+    2: {"name": "metal", "alpha": 0.0, "density": 1.225, "color": [0.25, 0.5, 0.7]},    # previous: alpha:0.1 density:500.0
 }
 DEFAULT_MATERIAL_ID = 1
 DEFAULT_ALPHA       = MATERIAL_MAP[0]["alpha"]
