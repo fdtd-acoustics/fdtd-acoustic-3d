@@ -1,54 +1,84 @@
 import numpy as np
 import taichi as ti
+import trimesh
 import config
 
-DX = 0.34000
-
+# Settings
 ti.init(arch=ti.gpu)
 
-output_file_path = config.SCENES_OUT_DIR / "test_room4.npz"
+DX = 0.034000
+output_file_path = config.SCENES_OUT_DIR / "Untitled.npz"
+input_mesh_path = config.SCENES_MODELS_DIR / "Untitled.obj"
 
 def show_taichi_3d():
+    # --- Preparing Voxels from .npz ---
     data = np.load(output_file_path)
     space_matrix = data['material_core']
 
-    #usuniecie powietrza
+    # Removing air
     base_mask = space_matrix > 0
     indices = np.argwhere(base_mask)
-
     points = indices * DX
     num_particles = len(points)
 
-    #kolory dla materialow
+    # Material Colors
     colors = np.zeros((num_particles, 3), dtype=np.float32)
     colors[space_matrix[base_mask] == 1] = [0.5, 0.5, 0.5]
-    colors[space_matrix[base_mask] == 2] = [0.9, 0.7, 0.1]
-
-    print(f"===>Prepared {num_particles} voxels to show.")
+    colors[space_matrix[base_mask] == 2] = [0.1, 0.7, 0.1]
 
     pos_field = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
     color_field = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
-
     pos_field.from_numpy(points.astype(np.float32))
     color_field.from_numpy(colors)
 
-    window = ti.ui.Window("Taichi FDTD - Voxel Tester", (1024, 768), fps_limit=500)
+    print(f"===>Prepared {num_particles} voxels to show.")
+
+    # --- Preparing Mesh from .npz ---
+    mesh_verts_np = data['mesh_vertices']
+    mesh_faces_np = data['mesh_faces']
+    mesh_colors_np = data['mesh_colors']
+
+    v_mesh = ti.Vector.field(3, dtype=ti.f32, shape=len(mesh_verts_np))
+    f_mesh = ti.field(dtype=ti.i32, shape=len(mesh_faces_np.flatten()))
+    c_mesh = ti.Vector.field(3, dtype=ti.f32, shape=len(mesh_colors_np))
+
+    v_mesh.from_numpy(mesh_verts_np.astype(np.float32))
+    f_mesh.from_numpy(mesh_faces_np.astype(np.int32).flatten())
+    c_mesh.from_numpy(mesh_colors_np.astype(np.float32))
+
+    # --- Window and GUI Configuration
+    window = ti.ui.Window("Taichi FDTD - Voxel & Mesh Tester", (1024, 768), fps_limit=500)
     canvas = window.get_canvas()
     scene = window.get_scene()
     camera = ti.ui.Camera()
 
-    camera.position(4.6, 4.6, 15.0)
-    camera.lookat(4.6, 4.6, 4.6)
+    center = (np.array(space_matrix.shape) / 2) * DX
+    camera.position(center[0], center[1], center[2] + 20)
+    camera.lookat(center[0], center[1], center[2])
+
+    # --- Default GUI variables
+    show_voxels = True
+    show_mesh = False
 
     while window.running:
-        camera.track_user_inputs(window, movement_speed=0.05, hold_key=ti.ui.RMB)
+        camera.track_user_inputs(window, movement_speed=0.2, hold_key=ti.ui.RMB)
         scene.set_camera(camera)
 
         scene.ambient_light((0.6, 0.6, 0.6))
-        scene.point_light(pos=(4.6, 10.0, 4.6), color=(1.0, 1.0, 1.0))
+        scene.point_light(pos=(center[0], center[1] + 20, center[2]), color=(1, 1, 1))
 
-        scene.particles(pos_field, radius=0.02, per_vertex_color=color_field)
+        if show_voxels:
+            scene.particles(pos_field, radius=0.04, per_vertex_color=color_field)
+
+        if show_mesh:
+            scene.mesh(v_mesh, indices=f_mesh, per_vertex_color=c_mesh)
+
         canvas.scene(scene)
+
+        with window.GUI.sub_window("Control Panel", 0.02, 0.02, 0.2, 0.15) as w:
+            show_voxels = w.checkbox("Show Voxels", show_voxels)
+            show_mesh = w.checkbox("Show Mesh", show_mesh)
+
         window.show()
 
 
