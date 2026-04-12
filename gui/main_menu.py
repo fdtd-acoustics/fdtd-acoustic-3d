@@ -7,7 +7,7 @@ class MainMenuWindow(tk.Tk):
     def __init__(self, on_start=None) -> None:
         super().__init__()
         self.title("FDTD simulation configuration menu")
-        self.geometry("1000x600")
+        self.geometry("950x600")
         self.on_start = on_start
 
         self.obj_filepath: str | None = None
@@ -24,6 +24,9 @@ class MainMenuWindow(tk.Tk):
         ttk.Separator(main_frame, orient="horizontal").pack(fill=tk.X, pady=15)
 
         self.sources_widgets(main_frame)
+        ttk.Separator(main_frame, orient="horizontal").pack(fill=tk.X, pady=15)
+
+        self.receivers_widgets(main_frame)
         ttk.Separator(main_frame, orient="horizontal").pack(fill=tk.X, pady=15)
 
         self.advanced_widgets(main_frame)
@@ -78,8 +81,6 @@ class MainMenuWindow(tk.Tk):
         initial_name = f"src_{len(getattr(self, 'sources_data', [])) + 1}"
         self.entry_name.insert(0, initial_name)
         self.entry_name.grid(row=0, column=1, padx=5, pady=2)
-
-
 
         # grid columns 2-3: Type
         ttk.Label(input_frame, text="Type:").grid(row=0, column=2, sticky="w", padx=2)
@@ -154,6 +155,35 @@ class MainMenuWindow(tk.Tk):
 
         self.tree.pack(fill=tk.X, pady=5)
 
+        ttk.Label(
+            parent,
+            text="Note: Source positions will be set in the 3D view.",
+            font=("Arial", 8, "italic"),
+            foreground="gray"
+        ).pack(anchor="w", pady=(2, 0))
+
+    def receivers_widgets(self, parent) -> None:
+        ttk.Label(
+            parent,
+            text="3. Microphones",
+            font=("Arial", 10, "bold"),
+        ).pack(anchor="w", pady=(0, 5))
+
+        rec_frame = ttk.Frame(parent)
+        rec_frame.pack(fill=tk.X)
+
+        ttk.Label(rec_frame, text="Recording Duration (s):").grid(row=0, column=0, sticky="w", pady=2)
+
+        self.rec_time_var = tk.DoubleVar(value=2.0)
+        self.entry_rec_time = ttk.Entry(rec_frame, textvariable=self.rec_time_var, width=10)
+        self.entry_rec_time.grid(row=0, column=1, padx=10, pady=2)
+
+        ttk.Label(
+            parent,
+            text="Note: Microphone positions will be set in the 3D view.",
+            font=("Arial", 8, "italic"),
+            foreground="gray"
+        ).pack(anchor="w", pady=(2, 0))
 
 
     def on_source_type_change(self, event: tk.Event) -> None:
@@ -249,7 +279,7 @@ class MainMenuWindow(tk.Tk):
     def advanced_widgets(self, parent: tk.Frame) -> None:
         ttk.Label(
             parent,
-            text="3. Advanced FDTD settings",
+            text="4. Advanced FDTD settings",
             font=("Arial", 10, "bold"),
         ).pack(anchor="w", pady=(0, 5))
 
@@ -270,6 +300,8 @@ class MainMenuWindow(tk.Tk):
         try:
             pml_thick = int(self.entry_pml.get())
             alpha = float(self.entry_alpha.get())
+            record_time = float(self.rec_time_var.get())
+
         except ValueError:
             messagebox.showerror("Error", "Check the validity of the entered parameters.")
             return
@@ -299,6 +331,7 @@ class MainMenuWindow(tk.Tk):
             "sources": self.sources_data,
             "pml_thickness": pml_thick,
             "alpha_max": alpha,
+            "record_time": record_time,
         }
 
         print("--- Configuration accepted ---")

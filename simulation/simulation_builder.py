@@ -28,7 +28,7 @@ class SimulationBuilder:
 
     def __init__(self, cfg: SimulationConfig):
         self._cfg = cfg
-        self._source_manager = None
+
 
     def compute_grid(self, sources_cfg: list[dict]) -> GridParams:
         max_freq = SourceManager.get_highest_frequency(sources = sources_cfg)

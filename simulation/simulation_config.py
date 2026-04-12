@@ -8,6 +8,7 @@ class SimulationConfig:
 
     pml_thick: int
     alpha_max: float
+    record_time: float
     sound_speed: float = config.SOUND_SPEED
     nodes_per_wavelength: int = config.NODES_PER_WAVELENGTH
     dim: int = config.DIM
@@ -31,4 +32,5 @@ class SimulationConfig:
             obj_filepath=cfg['obj_file'],
             pml_thick = cfg['pml_thickness'],
             alpha_max = cfg['alpha_max'],
+            record_time = cfg['record_time'],
         )

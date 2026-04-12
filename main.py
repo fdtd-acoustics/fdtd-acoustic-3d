@@ -24,7 +24,7 @@ def run_pipeline(cfg: dict) -> None:
     sources, receivers = SetupLoop(renderer, grid,sim ,cfg['sources'] ).run()
 
     source_manager = SourceManager.build_source_manager(sources, grid.dt )
-    receiver_manager = ReceiverManager.build_receiver_manager(receivers, 2.0, grid.dt)
+    receiver_manager = ReceiverManager.build_receiver_manager(receivers, sim_config.record_time, grid.dt)
 
     fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
 
