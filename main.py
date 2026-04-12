@@ -1,11 +1,13 @@
 import taichi as ti
 
-from fdtd import SourceManager, ReceiverManager
+from fdtd import SourceManager, ReceiverManager, receiver_manager
 from gui import MainMenuWindow
 from simulation import SimulationConfig, SimulationBuilder
 from visualization import SceneRenderer, Simulation
 from visualization.render_loop import RenderLoop
 from visualization.vis_config import MEMORY_LIMIT_GB
+from gui import SetupLoop
+
 
 def run_pipeline(cfg: dict) -> None:
     sim_config = SimulationConfig.from_dict(cfg)
@@ -17,20 +19,14 @@ def run_pipeline(cfg: dict) -> None:
     sim = Simulation(grid, sim_config.pml_thick)
     sim.init_voxels(sim_config.npz_filepath)
 
-    renderer = SceneRenderer(grid)
+    renderer = SceneRenderer(grid) # ustawianie zrodel i mikrofonow
 
-    #tutaj bedziemy dorzucac stawianie Sourcow, ale ten sam renderer i powinno byc git
-    #po prostu mozemy stworzyc cos na wzor RenderLoopa doslownie tylko inne rzeczy bedzie robil
+    sources, receivers = SetupLoop(renderer, grid,sim ,cfg['sources'] ).run()
 
-    max_steps = 20000 # pozniej w gui bedzie to zdobywac
-    source_manager = SourceManager.build_source_manager(cfg['sources'], max_steps, grid.dt ) #TODO tu trzeba bedzie tez przekazac tablice position i od razu przy dodawaniu zrodel ustawiac
-    source_manager.set_pos(0, 50, 50, 50)  # nie uwzglednia pml
-    receiver_manager = ReceiverManager(2, max_steps, grid.dt)
-    receiver_manager.add_receiver(100,100,100, "mik1") # nie uwzilednia pmla
-    #receiver_manager.add_receiver(30, 30, 30, "src")  # nie uwzilednia pmla
-    #receiver_manager.add_receiver(22, 22, 22, "mic2")  # nie uwzilednia pmla
+    source_manager = SourceManager.build_source_manager(sources, grid.dt )
+    receiver_manager = ReceiverManager.build_receiver_manager(receivers, 2.0, grid.dt)
+
     fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
-
 
     RenderLoop(fdtd_sim, grid, sim, renderer).run()
 

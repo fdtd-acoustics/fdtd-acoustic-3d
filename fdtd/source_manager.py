@@ -25,11 +25,11 @@ class SourceManager:
         for t in range(steps):
             dest[source_idx, t] = src[t]
 
-    def add_source(self, name: str, waveform_array: np.ndarray):
+    def add_source(self, name: str,x:int, y:int, z:int, waveform_array: np.ndarray):
         idx = self.count[None]
 
         if idx < self.max_sources:
-            self.pos[idx] = [30, 30, 30]  # tymczasowo
+            self.pos[idx] = [x, y, z]
 
             self._copy_waveform(self.waveforms, waveform_array, idx, self.max_steps)
 
@@ -54,23 +54,38 @@ class SourceManager:
 
 
     @classmethod
-    def build_source_manager(cls, sources: list[dict], max_steps: int, dt: float) -> 'SourceManager':
-        manager = cls(max_sources=len(sources), max_steps=max_steps)
-        for source in sources:
-            waveform = cls._calculate_waveform(source, dt, max_steps)
+    def build_source_manager(cls, sources: list[dict], dt: float) -> 'SourceManager':
+        max_time = max(source.get('time', 1.0) for source in sources)
+        max_steps = int(np.ceil(max_time / dt))
 
+        manager = cls(max_sources=len(sources), max_steps=max_steps)
+        for idx, source in enumerate(sources):
+            waveform = cls._calculate_waveform(source, dt, max_steps)
             waveform = np.ascontiguousarray(waveform, dtype=np.float32)
 
+            x, y, z = source.get('coords')
+
             manager.add_source(
-                name=source.get('name'),
+                name=source.get('name', f"src_{idx}"),
+                x=int(x),
+                y=int(y),
+                z=int(z),
                 waveform_array=waveform
             )
+
+            if 'coords' in source:
+                x, y, z = source['coords']
+                manager.set_pos(idx, int(x), int(y), int(z))
+
+
         return manager
 
     @staticmethod
     def _calculate_waveform(source: dict, dt: float, max_steps: int) -> np.ndarray:
         waveform = np.zeros(max_steps, dtype=np.float32)
         t = np.arange(max_steps) * dt
+
+        vol = float(source.get('vol', 1.0))
 
         if source['type'] == 'Gauss':
             freq = source.get('freq')
@@ -94,7 +109,7 @@ class SourceManager:
 
             waveform = interpolator(t).astype(np.float32)
 
-        return waveform
+        return vol * waveform
 
 
 
