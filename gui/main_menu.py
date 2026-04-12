@@ -7,7 +7,7 @@ class MainMenuWindow(tk.Tk):
     def __init__(self, on_start=None) -> None:
         super().__init__()
         self.title("FDTD simulation configuration menu")
-        self.geometry("780x540")
+        self.geometry("1000x600")
         self.on_start = on_start
 
         self.obj_filepath: str | None = None
@@ -72,54 +72,89 @@ class MainMenuWindow(tk.Tk):
         input_frame = ttk.Frame(parent)
         input_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(input_frame, text="Type:").grid(row=0, column=0, sticky="w", padx=2)
+        # grid columns 0-1: Name
+        ttk.Label(input_frame, text="Name:").grid(row=0, column=0, sticky="w", padx=2)
+        self.entry_name = ttk.Entry(input_frame, width=8)
+        initial_name = f"src_{len(getattr(self, 'sources_data', [])) + 1}"
+        self.entry_name.insert(0, initial_name)
+        self.entry_name.grid(row=0, column=1, padx=5, pady=2)
+
+
+
+        # grid columns 2-3: Type
+        ttk.Label(input_frame, text="Type:").grid(row=0, column=2, sticky="w", padx=2)
         self.combo_type = ttk.Combobox(
             input_frame, values=["Gauss", "Custom"], state="readonly", width=10
         )
         self.combo_type.current(0)
-        self.combo_type.grid(row=0, column=1, padx=5, pady=2)
+        self.combo_type.grid(row=0, column=3, padx=5, pady=2)
         self.combo_type.bind("<<ComboboxSelected>>", self.on_source_type_change)
 
+        # grid column 4: Params
         self.params_container = ttk.Frame(input_frame)
-        self.params_container.grid(row=0, column=2, sticky="w")
+        self.params_container.grid(row=0, column=4, sticky="w")
 
-        # gauss params panel
+        # gauss panel
         self.frame_gauss = ttk.Frame(self.params_container)
-        ttk.Label(self.frame_gauss, text="Amplitude:").pack(side=tk.LEFT, padx=(5, 2))
+        ttk.Label(self.frame_gauss, text="Amp:").pack(side=tk.LEFT, padx=(5, 2))
         self.entry_amp = ttk.Entry(self.frame_gauss, width=6)
         self.entry_amp.insert(0, "1000.0")
         self.entry_amp.pack(side=tk.LEFT)
-        ttk.Label(self.frame_gauss, text="Freq (Hz):").pack(side=tk.LEFT, padx=(10, 2))
+        ttk.Label(self.frame_gauss, text="Freq:").pack(side=tk.LEFT, padx=(10, 2))
         self.entry_freq = ttk.Entry(self.frame_gauss, width=6)
         self.entry_freq.insert(0, "1000")
         self.entry_freq.pack(side=tk.LEFT)
 
-        # wav params panel
+        # custom panel
         self.frame_custom = ttk.Frame(self.params_container)
-        self.btn_wav = ttk.Button(self.frame_custom, text="Choose .wav file", command=self.load_wav)
+        self.btn_wav = ttk.Button(self.frame_custom, text="Choose .wav", command=self.load_wav)
         self.btn_wav.pack(side=tk.LEFT, padx=5)
-        self.lbl_wav_path = ttk.Label(
-            self.frame_custom, text="No file", width=15, foreground="gray"
-        )
+        self.lbl_wav_path = ttk.Label(self.frame_custom, text="No file", width=15, foreground="gray")
         self.lbl_wav_path.pack(side=tk.LEFT)
 
         self.frame_gauss.pack(side=tk.LEFT)
 
+        # grid columns 5-6: Time
+        ttk.Label(input_frame, text="Time (s):").grid(row=0, column=5, sticky="w", padx=(10, 2))
+        self.entry_time = ttk.Entry(input_frame, width=6)
+        self.entry_time.insert(0, "5.0")
+        self.entry_time.grid(row=0, column=6, padx=5)
+
+        ttk.Label(input_frame, text="Vol:").grid(row=0, column=7, sticky="w", padx=(5, 2))
+        self.entry_vol = ttk.Entry(input_frame, width=5)
+        self.entry_vol.insert(0, "1.0")  # Domyślnie 1.0 (100%)
+        self.entry_vol.grid(row=0, column=8, padx=5)
+
+        # grid columns 7-8: Buttons
         ttk.Button(input_frame, text="Add source", command=self.add_source).grid(
-            row=0, column=3, padx=10
+            row=0, column=9, padx=10
         )
         ttk.Button(input_frame, text="Remove selected", command=self.remove_source).grid(
-            row=0, column=4, padx=5
+            row=0, column=10, padx=5
         )
 
-        # sources
-        columns = ("type", "details")
+        # --- Treeview Order: Type, Name, Time, Details ---
+        columns = ("type", "name", "time","vol", "details")
         self.tree = ttk.Treeview(parent, columns=columns, show="headings", height=4)
+
         self.tree.heading("type", text="Type")
         self.tree.column("type", width=80, anchor="center")
+
+        self.tree.heading("name", text="Name")
+        self.tree.column("name", width=80, anchor="center")
+
+        self.tree.heading("vol", text="Vol")
+        self.tree.column("vol", width=50, anchor="center")
+
+        self.tree.heading("time", text="Time (s)")
+        self.tree.column("time", width=80, anchor="center")
+
         self.tree.heading("details", text="Details (Parameters / File)")
         self.tree.column("details", width=350)
+
         self.tree.pack(fill=tk.X, pady=5)
+
+
 
     def on_source_type_change(self, event: tk.Event) -> None:
         """Switch parameter panel based on selected source type."""
@@ -144,15 +179,24 @@ class MainMenuWindow(tk.Tk):
         s_type = self.combo_type.get()
         default_coords = (60.0, 60.0, 60.0)
 
+        user_name = self.entry_name.get().strip() if hasattr(self, 'entry_name') else ""
+        source_name = user_name if user_name else f"src_{len(self.sources_data) + 1}"
+
         try:
+            sim_time = float(self.entry_time.get())
+            sim_vol = float(self.entry_vol.get())
+
             if s_type == "Gauss":
                 amp = float(self.entry_amp.get())
                 freq = float(self.entry_freq.get())
                 details = f"Amp: {amp}, Freq: {freq} Hz"
                 source_info: dict = {
+                    "name": source_name,
                     "type": "Gauss",
                     "amp": amp,
                     "freq": freq,
+                    "time": sim_time,
+                    "vol": sim_vol,
                     "coords": default_coords,
                 }
 
@@ -168,19 +212,27 @@ class MainMenuWindow(tk.Tk):
 
                 filename = os.path.basename(self.current_wav_path)
                 details = f"File: {filename}"
+
                 source_info = {
+                    "name": source_name,
                     "type": "Custom",
                     "filepath": self.current_wav_path,
+                    "time": sim_time,
+                    "vol": sim_vol,
                     "coords": default_coords,
                 }
                 self.current_wav_path = None
                 self.lbl_wav_path.config(text="No file", foreground="gray")
 
             self.sources_data.append(source_info)
-            self.tree.insert("", tk.END, values=(s_type, details))
+
+            self.tree.insert("", tk.END, values=(s_type, source_name, sim_time, sim_vol, details))
+
+            self.entry_name.delete(0, tk.END)
+            self.entry_name.insert(0, f"src_{len(self.sources_data) + 1}")
 
         except ValueError:
-            messagebox.showerror("Error", "Amplitude and frequency must be numbers!")
+            messagebox.showerror("Error", "Amplitude, Frequency and Time must be valid numbers!")
 
     def remove_source(self) -> None:
         """Remove selected rows from the sources list and the backing data."""
