@@ -44,12 +44,12 @@ class SetupLoop():
 
     def _handle_setup_gui(self, setup_vis):
         gui = self._renderer.window.get_gui()
-        with gui.sub_window("Setup Mode", 0.05, 0.05, 0.5, 0.8):
+        with gui.sub_window("Setup Mode", 0.05, 0.05, 0.5, 0.6):
             self._gui_draw_sources_list(gui)
             self._gui_draw_microphones_list(gui, setup_vis)
             self._gui_draw_editor(gui, setup_vis)
 
-            if gui.button("START SIMULATION"):
+            if gui.button("FINISH CONFIGURATION"):
                 self._is_running = False
 
     def _gui_draw_sources_list(self, gui):

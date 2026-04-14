@@ -6,7 +6,9 @@ from simulation import SimulationConfig, SimulationBuilder
 from visualization import SceneRenderer, Simulation
 from visualization.render_loop import RenderLoop
 from .setup_loop import SetupLoop
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
+import config
+import numpy as np
 
 class MainMenuWindow(tk.Tk):
     def __init__(self, on_start=None) -> None:
@@ -61,7 +63,7 @@ class MainMenuWindow(tk.Tk):
         window.destroy()
         self.deiconify()
 
-    def run_pipeline(cfg: dict) -> None:
+    def run_pipeline(self, cfg: dict) -> None:
         sim_config = SimulationConfig.from_dict(cfg)
 
         builder = SimulationBuilder(sim_config)
@@ -71,16 +73,22 @@ class MainMenuWindow(tk.Tk):
         sim = Simulation(grid, sim_config.pml_thick)
         sim.init_voxels(sim_config.npz_filepath)
 
-        renderer = SceneRenderer(grid) # ustawianie zrodel i mikrofonow
+        renderer = SceneRenderer(grid)
 
-        sources, receivers = SetupLoop(renderer, grid,sim ,cfg['sources'] ).run()
+        sources, receivers = SetupLoop(renderer, grid,sim ,cfg['sources'] ).run() # ustawianie zrodel i mikrofonow
 
-        source_manager = SourceManager.build_source_manager(sources, grid.dt )
-        receiver_manager = ReceiverManager.build_receiver_manager(receivers, sim_config.record_time, grid.dt)
+        action = self.show_post_setup_dialog(sim_config,grid, sources, receivers)  # mozliwosc zapisu konfiguracji do .npz
 
-        fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
+        if action == "start":
+            source_manager = SourceManager.build_source_manager(sources, grid.dt )
+            receiver_manager = ReceiverManager.build_receiver_manager(receivers, sim_config.record_time, grid.dt)
 
-        RenderLoop(fdtd_sim, grid, sim, renderer).run()
+            fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
+
+            RenderLoop(fdtd_sim, grid, sim, renderer).run()
+
+        else:
+            self.deiconify()
 
 
 
@@ -89,3 +97,93 @@ class MainMenuWindow(tk.Tk):
 
     def open_materials(self):
         pass
+
+    def show_post_setup_dialog(self, sim_config,grid, sources, receivers):
+        dialog = tk.Toplevel(self)
+        dialog.title("Setup Complete")
+        dialog.geometry("400x250")
+        dialog.grab_set()
+
+        tk.Label(dialog, text="Scene Configuration Finished!", font=('Arial', 12, 'bold')).pack(pady=10)
+
+        info_text = (
+            f"Sources: {len(sources)}\n"
+            f"Microphones: {len(receivers)}\n"
+        )
+        tk.Label(dialog, text=info_text, justify="left").pack(pady=5)
+
+        status_label = tk.Label(dialog, text="", font=('Arial', 10, 'bold'))
+        status_label.pack(pady=5)
+
+        result = {"action": "cancel"}
+
+        def on_save():
+            path = filedialog.asksaveasfilename(
+                initialdir=config.PROJECTS_DIR,
+                defaultextension=".npz",
+                filetypes=[("NPZ files", "*.npz")],
+                title="Save Full Simulation Project"
+            )
+            if path:
+                try:
+                    self.save_full_configuration(path, grid, sim_config, sources, receivers)
+                    filename = path.split('/')[-1]
+                    status_label.config(text=f"Saved: {filename}", fg="#28a745")
+                    dialog.update_idletasks()
+                except Exception as e:
+                    status_label.config(text=f"Save Error!", fg="red")
+                    print(f"Error details: {e}")
+
+        def on_start():
+            result["action"] = "start"
+            dialog.destroy()
+
+        def on_close():
+            result["action"] = "cancel"
+            dialog.destroy()
+
+        dialog.protocol("WM_DELETE_WINDOW", on_close)
+
+        btn_frame = tk.Frame(dialog)
+        btn_frame.pack(pady=20)
+
+        tk.Button(btn_frame, text="Save Project (.npz)", command=on_save, width=18).pack(side="left", padx=5)
+
+        tk.Button(btn_frame, text="START SIMULATION", command=on_start, width=18, bg="#28a745", fg="white",
+                  font=('Arial', 10, 'bold')).pack(side="left", padx=5)
+
+        self.wait_window(dialog)
+        return result["action"]
+
+
+
+    def save_full_configuration(self, path, grid, sim_config, sources, receivers):
+        try:
+            base_npz_path = sim_config.npz_filepath
+            with np.load(base_npz_path, allow_pickle=True) as data:
+                data_to_save = dict(data)  # mapa materialow
+
+            data_to_save.update({
+                'sources': np.array(sources, dtype=object),
+                'receivers': np.array(receivers, dtype=object),
+                'pml_thick': np.array(sim_config.pml_thick),
+                'alpha_max': np.array(sim_config.alpha_max),
+                'record_time': np.array(sim_config.record_time),
+                'sound_speed': np.array(sim_config.sound_speed),
+
+                'dx': np.array(grid.dx),
+                'dt': np.array(grid.dt),
+
+                'safety_factor': np.array(sim_config.safety_factor),
+                'nodes_per_wavelength': np.array(sim_config.nodes_per_wavelength)
+            })
+
+            np.savez(path, **data_to_save)
+            print(f"Full configuration merged and saved to: {base_npz_path}")
+
+        except FileNotFoundError:
+            print(f"Error: Base voxel file not found at {path}")
+            raise
+        except Exception as e:
+            print(f"An error occurred during saving: {e}")
+            raise
