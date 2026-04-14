@@ -14,7 +14,7 @@ class SimulationConfig:
     dim: int = config.DIM
     safety_factor: float = config.SAFETY_FACTOR
 
-    _scenes_out_dir: Path = config.SCENES_OUT_DIR
+    _scenes_out_dir: Path = config.VOXELS_DIR
     _npz_filepath: Path | None = None
 
     @property
