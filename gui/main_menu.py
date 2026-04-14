@@ -6,6 +6,7 @@ from simulation import SimulationConfig, SimulationBuilder
 from visualization import SceneRenderer, Simulation
 from visualization.render_loop import RenderLoop
 from .setup_loop import SetupLoop
+from tkinter import messagebox
 
 class MainMenuWindow(tk.Tk):
     def __init__(self, on_start=None) -> None:
@@ -13,8 +14,6 @@ class MainMenuWindow(tk.Tk):
         self.title("FDTD simulator")
         self.geometry("300x400")
         self.resizable(False, False)
-
-        tk.Label(self, text="FDTD 3D Solver", font=("Arial", 14, "bold")).pack(pady=20)
 
         tk.Button(self, text="New Simulation", width=25, height=2,
                   command=self.create_new_sim).pack(pady=10)
@@ -25,6 +24,32 @@ class MainMenuWindow(tk.Tk):
         tk.Button(self, text="Material Library", width=25, height=2,
                   command=self.open_materials).pack(pady=10)
 
+        bottom_frame = tk.Frame(self, padx=10, pady=10)
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
+
+        self.info_btn = tk.Button(
+            bottom_frame,
+            text="ⓘ",
+            width=4,
+            command=self.show_info,
+            font=("Arial", 12)
+        )
+        self.info_btn.pack(side=tk.LEFT)
+
+
+        self.exit_btn = tk.Button(
+            bottom_frame,
+            text="Exit",
+            width=8,
+            command=self.quit
+        )
+        self.exit_btn.pack(side=tk.RIGHT)
+
+    def show_info(self):
+        messagebox.showinfo(
+            "Information",
+            "Version 1.0".center(50)
+        )
 
 
     def create_new_sim(self):
