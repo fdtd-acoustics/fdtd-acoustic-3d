@@ -16,10 +16,11 @@ class SetupLoop():
 
         self._sources_to_setup = initial_sources
         self._microphones = []
+        self._microphone_id = 1
 
         self._is_running = True
-        self._current_mode = "SOURCES"  # Lub "RECEIVERS"
-        self._active_index = 0
+        self._edit_type: str | None = "SOURCE" # can be "SOURCE", "MIC", or None
+        self._edit_index: int = 0
 
     def run(self) -> tuple[list[dict], list[dict]]:
 
@@ -41,40 +42,94 @@ class SetupLoop():
 
         return self._sources_to_setup, self._microphones
 
-    def _handle_setup_gui(self, setup_vis) -> tuple[int, int]:
+    def _handle_setup_gui(self, setup_vis):
         gui = self._renderer.window.get_gui()
-        with gui.sub_window("Setup Mode", 0.05, 0.05, 0.5, 0.5):
-            if self._current_mode == "SOURCES":
-                current_src = self._sources_to_setup[self._active_index]
-                gui.text(f"Configuring Source: {current_src['name']}")
+        with gui.sub_window("Setup Mode", 0.05, 0.05, 0.5, 0.8):
+            self._gui_draw_sources_list(gui)
+            self._gui_draw_microphones_list(gui, setup_vis)
+            self._gui_draw_editor(gui, setup_vis)
 
-                c = list(current_src.get('coords', (self._grid.Nx // 2, self._grid.Ny // 2, self._grid.Nz // 2)))
-                c[0] = gui.slider_int("X", int(c[0]), 0, self._grid.Nx - 1)
-                c[1] = gui.slider_int("Y", int(c[1]), 0, self._grid.Ny - 1)
-                c[2] = gui.slider_int("Z", int(c[2]), 0, self._grid.Nz - 1)
+            if gui.button("START SIMULATION"):
+                self._is_running = False
 
-                current_src['coords'] = tuple(c)
-                setup_vis["sources_pos"][self._active_index] = ti.Vector([c[0], c[1], c[2]])
+    def _gui_draw_sources_list(self, gui):
+        gui.text("--- SOURCES ---")
+        for i, src in enumerate(self._sources_to_setup):
+            src_name = src.get('name', f'Source {i}')
+            gui.text(f"Source: {src_name}")
+            if gui.button(f"Edit##src_{i}"):
+                self._edit_type = "SOURCE"
+                self._edit_index = i
 
-                if gui.button("Confirm Source"):
-                    if self._active_index < len(self._sources_to_setup) - 1:
-                        self._active_index += 1
-                    else:
-                        self._current_mode = "MICROPHONE"
-                        self._active_index = 0
+        gui.text("")
 
-            elif self._current_mode == "MICROPHONE":
-                gui.text(f"Microphones: {len(self._microphones)}")
-                if gui.button("Add Microphone"):
-                    self._microphones.append({"name": f"mic_{len(self._microphones) + 1}", "x": 50, "y": 50, "z": 50})
-                    self._active_index = len(self._microphones) - 1
+    def _gui_draw_microphones_list(self, gui, setup_vis):
+        gui.text("--- MICROPHONES ---")
 
-                if self._microphones:
-                    m = self._microphones[self._active_index]
-                    m['x'] = gui.slider_int("Mic X", m['x'], 0, self._grid.Nx - 1)
-                    m['y'] = gui.slider_int("Mic Y", m['y'], 0, self._grid.Ny - 1)
-                    m['z'] = gui.slider_int("Mic Z", m['z'], 0, self._grid.Nz - 1)
-                    setup_vis["mics_pos"][self._active_index] = ti.Vector([m['x'], m['y'], m['z']])
+        if gui.button("+ Add Microphone"):
+            new_mic = {"name": f"mic_{self._microphone_id}", "x": 50, "y": 50, "z": 50}
+            self._microphone_id += 1
+            self._microphones.append(new_mic)
+            self._edit_type = "MIC"
+            self._edit_index = len(self._microphones) - 1
 
-                if gui.button("START SIMULATION"):
-                    self._is_running = False
+        mic_to_delete = -1
+        for i, mic in enumerate(self._microphones):
+            gui.text(f"- {mic['name']}")
+
+            if gui.button(f"Edit##mic_edit_{i}"):
+                self._edit_type = "MIC"
+                self._edit_index = i
+
+            if gui.button(f"Delete##mic_del_{i}"):
+                mic_to_delete = i
+
+        if mic_to_delete != -1:
+            self._microphones.pop(mic_to_delete)
+
+            if self._edit_type == "MIC" and self._edit_index == mic_to_delete:
+                self._edit_type = None
+            elif self._edit_type == "MIC" and self._edit_index > mic_to_delete:
+                self._edit_index -= 1
+
+            self._sync_all_mics_to_vis(setup_vis)
+
+        gui.text("")
+
+    def _sync_all_mics_to_vis(self, setup_vis):
+        max_mics = setup_vis["mics_pos"].shape[0]
+        for i in range(max_mics):
+            setup_vis["mics_pos"][i] = ti.Vector([-10000, -10000, -10000])
+
+        for i, mic in enumerate(self._microphones):
+            setup_vis["mics_pos"][i] = ti.Vector([mic['x'], mic['y'], mic['z']])
+
+    def _gui_draw_editor(self, gui, setup_vis):
+        if self._edit_type is None:
+            return
+
+        gui.text("=== EDITOR ===")
+
+        if self._edit_type == "SOURCE" and self._edit_index < len(self._sources_to_setup):
+            current_src = self._sources_to_setup[self._edit_index]
+            gui.text(f"Configuring: {current_src.get('name', 'Source')}")
+
+            c = list(current_src.get('coords', (self._grid.Nx // 2, self._grid.Ny // 2, self._grid.Nz // 2)))
+            c[0] = gui.slider_int("X", int(c[0]), 0, self._grid.Nx - 1)
+            c[1] = gui.slider_int("Y", int(c[1]), 0, self._grid.Ny - 1)
+            c[2] = gui.slider_int("Z", int(c[2]), 0, self._grid.Nz - 1)
+
+            current_src['coords'] = tuple(c)
+            setup_vis["sources_pos"][self._edit_index] = ti.Vector([c[0], c[1], c[2]])
+
+        elif self._edit_type == "MIC" and self._edit_index < len(self._microphones):
+            m = self._microphones[self._edit_index]
+            gui.text(f"Configuring: {m['name']}")
+
+            m['x'] = gui.slider_int("Mic X", m['x'], 0, self._grid.Nx - 1)
+            m['y'] = gui.slider_int("Mic Y", m['y'], 0, self._grid.Ny - 1)
+            m['z'] = gui.slider_int("Mic Z", m['z'], 0, self._grid.Nz - 1)
+
+            setup_vis["mics_pos"][self._edit_index] = ti.Vector([m['x'], m['y'], m['z']])
+
+        gui.text("")
