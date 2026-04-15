@@ -1,14 +1,16 @@
 import tkinter as tk
 
-from fdtd import SourceManager, ReceiverManager
+from fdtd import SourceManager, ReceiverManager, FDTD_Simulation
 from gui import NewSimulationWindow
 from simulation import SimulationConfig, SimulationBuilder
 from visualization import SceneRenderer, Simulation
 from visualization.render_loop import RenderLoop
 from .setup_loop import SetupLoop
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, Grid
 import config
 import numpy as np
+from simulation import GridParams
+import taichi as ti
 
 class MainMenuWindow(tk.Tk):
     def __init__(self, on_start=None) -> None:
@@ -71,7 +73,10 @@ class MainMenuWindow(tk.Tk):
         builder.voxelize(grid)
 
         sim = Simulation(grid, sim_config.pml_thick)
-        sim.init_voxels(sim_config.npz_filepath)
+        data = np.load(sim_config.npz_filepath)
+
+        space_matrix = data['material_core']
+        sim.init_voxels(space_matrix)
 
         renderer = SceneRenderer(grid)
 
@@ -93,9 +98,74 @@ class MainMenuWindow(tk.Tk):
 
 
     def load_simulation(self):
-        pass
+        loaded_data = self.load_data_from_npz()
+
+        fdtd_sim, grid, sim = self.prepare_data(loaded_data)
+
+        renderer = SceneRenderer(grid)
+        RenderLoop(fdtd_sim, grid, sim, renderer).run()
+
+
+
+    def prepare_data(self, data):
+        space_matrix = data['material_core']
+
+        source_manager = data['sources']
+        receiver_manager = data['receivers']
+
+        pml_thick = int(data['pml_thick'])
+        alpha_max = float(data['alpha_max'])
+
+        sound_speed = float(data['sound_speed'])
+        record_time = float(data['record_time'])
+
+        nodes_per_wavelength = int(data['nodes_per_wavelength'])
+        safety_factor = float(data['safety_factor'])
+
+        dx = float(data['dx'])
+        dt = float(data['dt'])
+
+        Nx = int(data['Nx'])
+        Ny = int(data['Ny'])
+        Nz = int(data['Nz'])
+
+        grid = GridParams(dx, dt, Nx, Ny, Nz)
+
+        sim = Simulation(grid, pml_thick)
+        sim.init_voxels(space_matrix)
+
+        fdtd_sim = FDTD_Simulation(sound_speed, dx, dt, pml_thick, alpha_max, safety_factor, source_manager, receiver_manager, space_matrix)
+
+        return fdtd_sim, grid, sim
+
+
+    def load_data_from_npz(self):
+        path = filedialog.askopenfilename(
+            initialdir=config.PROJECTS_DIR,
+            title="Select Simulation Project (.npz)",
+            filetypes=[("NPZ files", "*.npz"), ("All files", "*.*")]
+        )
+        if not path:
+            return None
+
+        try:
+            data = np.load(path, allow_pickle=True)
+
+            if 'sources' not in data.files:
+                messagebox.showwarning(
+                    "Incomplete Project",
+                    "This file only contains geometry. You will need to set up sources and microphones again."
+                )
+
+            print(f"Project loaded successfully: {path}")
+            return data
+
+        except Exception as e:
+            messagebox.showerror("Loading Error", f"Failed to load the file:\n{e}")
+            return None
 
     def open_materials(self):
+        #TODO
         pass
 
     def show_post_setup_dialog(self, sim_config,grid, sources, receivers):
@@ -175,7 +245,11 @@ class MainMenuWindow(tk.Tk):
                 'dt': np.array(grid.dt),
 
                 'safety_factor': np.array(sim_config.safety_factor),
-                'nodes_per_wavelength': np.array(sim_config.nodes_per_wavelength)
+                'nodes_per_wavelength': np.array(sim_config.nodes_per_wavelength),
+
+                'Nx':np.array(grid.Nx),
+                'Ny':np.array(grid.Ny),
+                'Nz':np.array(grid.Nz)
             })
 
             np.savez(path, **data_to_save)

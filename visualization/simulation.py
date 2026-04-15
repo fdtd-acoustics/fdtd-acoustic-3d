@@ -30,9 +30,9 @@ class Simulation:
         self.voxels_color = None
         self.num_voxels = 0
 
-    def init_voxels(self, file_path):
-        data = np.load(file_path)
-        space_matrix = data['material_core']
+    def init_voxels(self, space_matrix: np.ndarray):
+        # data = np.load(file_path)
+        # space_matrix = data['material_core']
 
         base_mask = space_matrix > 0
         indices = np.argwhere(base_mask)
