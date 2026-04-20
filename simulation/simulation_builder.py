@@ -29,13 +29,15 @@ class SimulationBuilder:
     def __init__(self, cfg: SimulationConfig):
         self._cfg = cfg
 
+    def compute_dx(self, sources_cfg: list[dict]) -> float:
+        max_freq = SourceManager.get_highest_frequency(sources=sources_cfg)
+        wavelength = self._cfg.sound_speed / max_freq
+        dx = wavelength / self._cfg.nodes_per_wavelength
+        return dx
 
     def compute_grid(self, sources_cfg: list[dict]) -> GridParams:
-        max_freq = SourceManager.get_highest_frequency(sources = sources_cfg)
-        print(f"MAX FREQ: {max_freq}")
-        wavelength = self._cfg.sound_speed / max_freq
+        dx = self.compute_dx(sources_cfg)
 
-        dx = wavelength / self._cfg.nodes_per_wavelength
         dt = self._compute_dt(dx)
 
         x_meters, y_meters, z_meters = self._load_obj_dimensions()
@@ -124,6 +126,18 @@ class SimulationBuilder:
     def _compute_dt(self, dx: float) -> float:
         courant_limit = 1.0 / math.sqrt(self._cfg.dim)
         return (dx / self._cfg.sound_speed) * courant_limit * self._cfg.safety_factor
+
+    def validate_dx(self, grid: GridParams, sources_cfg: list[dict]) -> bool:
+        required_dx = self.compute_dx(sources_cfg)
+
+        return grid.dx <= required_dx
+
+    def get_max_safe_frequency(self, dx: float) -> float:
+        wavelength_min = dx * self._cfg.nodes_per_wavelength
+        max_freq = self._cfg.sound_speed / wavelength_min
+        return max_freq
+
+
 
     @staticmethod
     def _log_grid(grid: GridParams) -> None:

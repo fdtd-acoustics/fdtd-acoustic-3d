@@ -359,8 +359,10 @@ class NewSimulationWindow(tk.Toplevel):
         print(f"Sources:       {config['sources']}")
         print(f"PML:           {config['pml_thickness']},  Alpha max: {config['alpha_max']}")
         if self.on_start:
-            self.on_start(config, self.loaded_data)
-            self.destroy()
+            success = self.on_start(config, self.loaded_data)
+            if success:
+                self.destroy()
+            
 
     def fill_loaded_data(self) -> None:
         if not self.is_loaded:

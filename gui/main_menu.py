@@ -69,7 +69,20 @@ class MainMenuWindow(tk.Tk):
         builder = SimulationBuilder(sim_config)
         if loaded_data is not None:
             grid = builder.grid_from_data(loaded_data)
-            # tu trzeba zrobic check_dx
+
+            if not builder.validate_dx(grid, cfg['sources']):
+                from tkinter import messagebox
+
+                max_frequency = builder.get_max_safe_frequency(grid.dx)
+
+                messagebox.showerror(
+                    "Frequency Too High",
+            f"The grid is configured for a maximum frequency of {max_frequency:.0f} Hz, "
+                    f"but one of your sources exceeds this limit.\n\n"
+                    f"This may cause numerical instability. Please ensure all sources are set "
+                    f"to a frequency no higher than {max_frequency:.0f} Hz."
+                )
+                return False
 
             space_matrix = loaded_data['material_core']
 
@@ -104,6 +117,8 @@ class MainMenuWindow(tk.Tk):
 
         else:
             self.deiconify()
+
+        return True
 
 
     def load_simulation(self):
