@@ -1,347 +1,206 @@
-import os
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
 
-#Todo: oprocz tych poprawek co gadalismy to mozna zrobic dark theme
+from fdtd import SourceManager, ReceiverManager, FDTD_Simulation
+from gui import NewSimulationWindow
+from simulation import SimulationConfig, SimulationBuilder
+from visualization import SceneRenderer, Simulation
+from visualization.render_loop import RenderLoop
+from .setup_loop import SetupLoop
+from tkinter import messagebox, filedialog, Grid
+import config
+import numpy as np
+
 class MainMenuWindow(tk.Tk):
     def __init__(self, on_start=None) -> None:
         super().__init__()
-        self.title("FDTD simulation configuration menu")
-        self.geometry("950x600")
-        self.on_start = on_start
+        self.title("FDTD simulator")
+        self.geometry("300x400")
+        self.resizable(False, False)
 
-        self.obj_filepath: str | None = None
-        self.sources_data: list[dict] = []
-        self.current_wav_path: str | None = None
+        tk.Button(self, text="New Simulation", width=25, height=2,
+                  command=self.create_new_sim).pack(pady=10)
 
-        self.create_widgets()
+        tk.Button(self, text="Load Simulation (.npz)", width=25, height=2,
+                  command=self.load_simulation).pack(pady=10)
 
-    def create_widgets(self) -> None:
-        main_frame = tk.Frame(self, padx=15, pady=15)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        tk.Button(self, text="Material Library", width=25, height=2,
+                  command=self.open_materials).pack(pady=10)
 
-        self.obj_widgets(main_frame)
-        ttk.Separator(main_frame, orient="horizontal").pack(fill=tk.X, pady=15)
+        bottom_frame = tk.Frame(self, padx=10, pady=10)
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
-        self.sources_widgets(main_frame)
-        ttk.Separator(main_frame, orient="horizontal").pack(fill=tk.X, pady=15)
-
-        self.receivers_widgets(main_frame)
-        ttk.Separator(main_frame, orient="horizontal").pack(fill=tk.X, pady=15)
-
-        self.advanced_widgets(main_frame)
-        ttk.Separator(main_frame, orient="horizontal").pack(fill=tk.X, pady=20)
-
-        self.start_btn = tk.Button(
-            main_frame,
-            text="Prepare and run simulation",
-            command=self.start_simulation,
-            font=("Arial", 12, "bold"),
-            relief="flat",
-            bd=0,
+        self.info_btn = tk.Button(
+            bottom_frame,
+            text="ⓘ",
+            width=4,
+            command=self.show_info,
+            font=("Arial", 12)
         )
-        self.start_btn.pack(fill=tk.X, ipady=12, pady=10)
+        self.info_btn.pack(side=tk.LEFT)
 
-    def obj_widgets(self, parent: tk.Frame) -> None:
-        ttk.Label(
-            parent,
-            text="1. Room geometry (.obj)",
-            font=("Arial", 10, "bold"),
-        ).pack(anchor="w", pady=(0, 5))
 
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X)
-
-        self.lbl_obj_path = ttk.Label(frame, text="No file selected...", padding=(0,5))
-        self.lbl_obj_path.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        ttk.Button(frame, text="Choose .obj", command=self.load_obj).pack(side=tk.RIGHT)
-
-    def load_obj(self) -> None:
-        filepath = filedialog.askopenfilename(
-            filetypes=[("OBJ Files", "*.obj"), ("All files", "*.*")]
+        self.exit_btn = tk.Button(
+            bottom_frame,
+            text="Exit",
+            width=8,
+            command=self.quit
         )
-        if filepath:
-            self.obj_filepath = filepath
-            self.lbl_obj_path.config(text=os.path.basename(filepath), foreground="black")
+        self.exit_btn.pack(side=tk.RIGHT)
 
-    def sources_widgets(self, parent: tk.Frame) -> None:
-        ttk.Label(
-            parent,
-            text="2. Sound source configuration",
-            font=("Arial", 10, "bold"),
-        ).pack(anchor="w", pady=(0, 5))
-
-        input_frame = ttk.Frame(parent)
-        input_frame.pack(fill=tk.X, pady=5)
-
-        # grid columns 0-1: Name
-        ttk.Label(input_frame, text="Name:").grid(row=0, column=0, sticky="w", padx=2)
-        self.entry_name = ttk.Entry(input_frame, width=8)
-        initial_name = f"src_{len(getattr(self, 'sources_data', [])) + 1}"
-        self.entry_name.insert(0, initial_name)
-        self.entry_name.grid(row=0, column=1, padx=5, pady=2)
-
-        # grid columns 2-3: Type
-        ttk.Label(input_frame, text="Type:").grid(row=0, column=2, sticky="w", padx=2)
-        self.combo_type = ttk.Combobox(
-            input_frame, values=["Gauss", "Custom"], state="readonly", width=10
-        )
-        self.combo_type.current(0)
-        self.combo_type.grid(row=0, column=3, padx=5, pady=2)
-        self.combo_type.bind("<<ComboboxSelected>>", self.on_source_type_change)
-
-        # grid column 4: Params
-        self.params_container = ttk.Frame(input_frame)
-        self.params_container.grid(row=0, column=4, sticky="w")
-
-        # gauss panel
-        self.frame_gauss = ttk.Frame(self.params_container)
-        ttk.Label(self.frame_gauss, text="Amp:").pack(side=tk.LEFT, padx=(5, 2))
-        self.entry_amp = ttk.Entry(self.frame_gauss, width=6)
-        self.entry_amp.insert(0, "1000.0")
-        self.entry_amp.pack(side=tk.LEFT)
-        ttk.Label(self.frame_gauss, text="Freq:").pack(side=tk.LEFT, padx=(10, 2))
-        self.entry_freq = ttk.Entry(self.frame_gauss, width=6)
-        self.entry_freq.insert(0, "1000")
-        self.entry_freq.pack(side=tk.LEFT)
-
-        # custom panel
-        self.frame_custom = ttk.Frame(self.params_container)
-        self.btn_wav = ttk.Button(self.frame_custom, text="Choose .wav", command=self.load_wav)
-        self.btn_wav.pack(side=tk.LEFT, padx=5)
-        self.lbl_wav_path = ttk.Label(self.frame_custom, text="No file", width=15, foreground="gray")
-        self.lbl_wav_path.pack(side=tk.LEFT)
-
-        self.frame_gauss.pack(side=tk.LEFT)
-
-        # grid columns 5-6: Time
-        ttk.Label(input_frame, text="Time (s):").grid(row=0, column=5, sticky="w", padx=(10, 2))
-        self.entry_time = ttk.Entry(input_frame, width=6)
-        self.entry_time.insert(0, "5.0")
-        self.entry_time.grid(row=0, column=6, padx=5)
-
-        ttk.Label(input_frame, text="Vol:").grid(row=0, column=7, sticky="w", padx=(5, 2))
-        self.entry_vol = ttk.Entry(input_frame, width=5)
-        self.entry_vol.insert(0, "1.0")  # Domyślnie 1.0 (100%)
-        self.entry_vol.grid(row=0, column=8, padx=5)
-
-        # grid columns 7-8: Buttons
-        ttk.Button(input_frame, text="Add source", command=self.add_source).grid(
-            row=0, column=9, padx=10
-        )
-        ttk.Button(input_frame, text="Remove selected", command=self.remove_source).grid(
-            row=0, column=10, padx=5
+    def show_info(self):
+        messagebox.showinfo(
+            "Information",
+            "Version 1.0".center(50)
         )
 
-        # --- Treeview Order: Type, Name, Time, Details ---
-        columns = ("type", "name", "time","vol", "details")
-        self.tree = ttk.Treeview(parent, columns=columns, show="headings", height=4)
+    def create_new_sim(self):
+        self.withdraw()
+        new_sim_window = NewSimulationWindow(on_start=self.run_pipeline)
+        new_sim_window.protocol("WM_DELETE_WINDOW", lambda: self.on_close_subwindow(new_sim_window))
 
-        self.tree.heading("type", text="Type")
-        self.tree.column("type", width=80, anchor="center")
+    def on_close_subwindow(self, window):
+        window.destroy()
+        self.deiconify()
 
-        self.tree.heading("name", text="Name")
-        self.tree.column("name", width=80, anchor="center")
+    def run_pipeline(self, cfg: dict, loaded_data: dict | None = None) -> bool:
+        sim_config = SimulationConfig.from_dict(cfg)
 
-        self.tree.heading("vol", text="Vol")
-        self.tree.column("vol", width=50, anchor="center")
+        builder = SimulationBuilder(sim_config)
+        if loaded_data is not None:
+            grid = builder.grid_from_data(loaded_data)
 
-        self.tree.heading("time", text="Time (s)")
-        self.tree.column("time", width=80, anchor="center")
+            # check if source frequencies are consistent with the grid resolution
+            if not builder.validate_dx(grid, cfg['sources']):
+                from tkinter import messagebox
 
-        self.tree.heading("details", text="Details (Parameters / File)")
-        self.tree.column("details", width=350)
+                max_frequency = builder.get_max_safe_frequency(grid.dx)
 
-        self.tree.pack(fill=tk.X, pady=5)
-
-        ttk.Label(
-            parent,
-            text="Note: Source positions will be set in the 3D view.",
-            font=("Arial", 8, "italic"),
-            foreground="gray"
-        ).pack(anchor="w", pady=(2, 0))
-
-    def receivers_widgets(self, parent) -> None:
-        ttk.Label(
-            parent,
-            text="3. Microphones",
-            font=("Arial", 10, "bold"),
-        ).pack(anchor="w", pady=(0, 5))
-
-        rec_frame = ttk.Frame(parent)
-        rec_frame.pack(fill=tk.X)
-
-        ttk.Label(rec_frame, text="Recording Duration (s):").grid(row=0, column=0, sticky="w", pady=2)
-
-        self.rec_time_var = tk.DoubleVar(value=2.0)
-        self.entry_rec_time = ttk.Entry(rec_frame, textvariable=self.rec_time_var, width=10)
-        self.entry_rec_time.grid(row=0, column=1, padx=10, pady=2)
-
-        ttk.Label(
-            parent,
-            text="Note: Microphone positions will be set in the 3D view.",
-            font=("Arial", 8, "italic"),
-            foreground="gray"
-        ).pack(anchor="w", pady=(2, 0))
-
-
-    def on_source_type_change(self, event: tk.Event) -> None:
-        """Switch parameter panel based on selected source type."""
-        s_type = self.combo_type.get()
-        if s_type == "Gauss":
-            self.frame_custom.pack_forget()
-            self.frame_gauss.pack(side=tk.LEFT)
-        elif s_type == "Custom":
-            self.frame_gauss.pack_forget()
-            self.frame_custom.pack(side=tk.LEFT)
-
-    def load_wav(self) -> None:
-        filepath = filedialog.askopenfilename(filetypes=[("WAV Audio", "*.wav")])
-        if filepath:
-            if not os.path.exists(filepath):
-                messagebox.showerror("Error", "Selected .wav file does not exist!")
-                return
-            self.current_wav_path = filepath
-            self.lbl_wav_path.config(text=os.path.basename(filepath), foreground="black")
-
-    def add_source(self) -> None:
-        s_type = self.combo_type.get()
-        default_coords = (60.0, 60.0, 60.0)
-
-        user_name = self.entry_name.get().strip() if hasattr(self, 'entry_name') else ""
-        source_name = user_name if user_name else f"src_{len(self.sources_data) + 1}"
-
-        try:
-            sim_time = float(self.entry_time.get())
-            sim_vol = float(self.entry_vol.get())
-
-            if s_type == "Gauss":
-                amp = float(self.entry_amp.get())
-                freq = float(self.entry_freq.get())
-                details = f"Amp: {amp}, Freq: {freq} Hz"
-                source_info: dict = {
-                    "name": source_name,
-                    "type": "Gauss",
-                    "amp": amp,
-                    "freq": freq,
-                    "time": sim_time,
-                    "vol": sim_vol,
-                    "coords": default_coords,
-                }
-
-            elif s_type == "Custom":
-                if not self.current_wav_path:
-                    messagebox.showwarning("No file", "Please select a .wav file for the Custom source!")
-                    return
-                if not os.path.exists(self.current_wav_path):
-                    messagebox.showerror(
-                        "Error", "Selected .wav file does not exist or has been deleted!"
-                    )
-                    return
-
-                filename = os.path.basename(self.current_wav_path)
-                details = f"File: {filename}"
-
-                source_info = {
-                    "name": source_name,
-                    "type": "Custom",
-                    "filepath": self.current_wav_path,
-                    "time": sim_time,
-                    "vol": sim_vol,
-                    "coords": default_coords,
-                }
-                self.current_wav_path = None
-                self.lbl_wav_path.config(text="No file", foreground="gray")
-
-            self.sources_data.append(source_info)
-
-            self.tree.insert("", tk.END, values=(s_type, source_name, sim_time, sim_vol, details))
-
-            self.entry_name.delete(0, tk.END)
-            self.entry_name.insert(0, f"src_{len(self.sources_data) + 1}")
-
-        except ValueError:
-            messagebox.showerror("Error", "Amplitude, Frequency and Time must be valid numbers!")
-
-    def remove_source(self) -> None:
-        """Remove selected rows from the sources list and the backing data."""
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showinfo("Info", "Please select a source to remove.")
-            return
-
-        for item in selected:
-            index = self.tree.index(item)
-            self.tree.delete(item)
-            del self.sources_data[index]
-
-    def advanced_widgets(self, parent: tk.Frame) -> None:
-        ttk.Label(
-            parent,
-            text="4. Advanced FDTD settings",
-            font=("Arial", 10, "bold"),
-        ).pack(anchor="w", pady=(0, 5))
-
-        adv_frame = ttk.Frame(parent)
-        adv_frame.pack(fill=tk.X)
-
-        ttk.Label(adv_frame, text="PML thickness (layers):").grid(row=0, column=0, sticky="w", pady=2)
-        self.entry_pml = ttk.Entry(adv_frame, width=10)
-        self.entry_pml.insert(0, "20")
-        self.entry_pml.grid(row=0, column=1, padx=10, pady=2)
-
-        ttk.Label(adv_frame, text="Alpha max (attenuation):").grid(row=1, column=0, sticky="w", pady=2)
-        self.entry_alpha = ttk.Entry(adv_frame, width=10)
-        self.entry_alpha.insert(0, "0.15")
-        self.entry_alpha.grid(row=1, column=1, padx=10, pady=2)
-
-    def start_simulation(self) -> None:
-        try:
-            pml_thick = int(self.entry_pml.get())
-            alpha = float(self.entry_alpha.get())
-            record_time = float(self.rec_time_var.get())
-
-        except ValueError:
-            messagebox.showerror("Error", "Check the validity of the entered parameters.")
-            return
-
-        if not self.obj_filepath:
-            messagebox.showwarning("Warning", "No .obj geometry file selected!")
-            return
-
-        if not os.path.exists(self.obj_filepath):
-            messagebox.showerror("Error", "The .obj file does not exist or has been deleted!")
-            return
-
-        if not self.sources_data:
-            messagebox.showwarning("Warning", "No sound sources have been added!")
-            return
-
-        for i, src in enumerate(self.sources_data):
-            if src["type"] == "Custom" and not os.path.exists(src["filepath"]):
                 messagebox.showerror(
-                    "Error",
-                    f"The .wav file for source #{i + 1} does not exist or has been deleted:\n{src['filepath']}",
+                    "Frequency Too High",
+            f"The grid is configured for a maximum frequency of {max_frequency:.0f} Hz, "
+                    f"but one of your sources exceeds this limit.\n\n"
+                    f"This may cause numerical instability. Please ensure all sources are set "
+                    f"to a frequency no higher than {max_frequency:.0f} Hz."
                 )
-                return
+                return False
 
-        config = {
-            "obj_file": self.obj_filepath,
-            "sources": self.sources_data,
-            "pml_thickness": pml_thick,
-            "alpha_max": alpha,
-            "record_time": record_time,
-        }
+            space_matrix = loaded_data['material_core']
 
-        print("--- Configuration accepted ---")
-        print(f"OBJ file:      {config['obj_file']}")
-        print(f"Sources:       {config['sources']}")
-        print(f"PML:           {config['pml_thickness']},  Alpha max: {config['alpha_max']}")
-        if self.on_start:
-            self.on_start(config)
-            self.destroy()
+            initial_sources = cfg['sources']
+            initial_receivers = loaded_data.get('receivers')
+        else:
+            grid = builder.compute_grid(cfg['sources'])
+            builder.voxelize(grid)
 
-if __name__ == "__main__":
-    app = MainMenuWindow()
-    app.mainloop()
+            data = np.load(sim_config.npz_filepath)
+            space_matrix = data['material_core']
+            initial_sources = cfg['sources']
+            initial_receivers = []
+
+        sim = Simulation(grid, sim_config.pml_thick)
+        sim.init_voxels(space_matrix)
+
+        renderer = SceneRenderer(grid)
+
+        sources, receivers = SetupLoop(renderer, grid,sim ,initial_sources, initial_receivers).run() # ustawianie zrodel i mikrofonow
+
+        action = self.show_post_setup_dialog(sim_config,grid, sources, receivers)  # mozliwosc zapisu konfiguracji do .npz
+
+        if action == "start":
+            source_manager = SourceManager.build_source_manager(sources, grid.dt )
+            receiver_manager = ReceiverManager.build_receiver_manager(receivers, sim_config.record_time, grid.dt)
+
+            fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
+            RenderLoop(fdtd_sim, grid, sim, renderer).run()
+        else:
+            self.deiconify()
+        return True
+
+
+    def load_simulation(self):
+        loaded_data = self.load_data_from_npz()
+
+        self.withdraw()
+        new_sim_window = NewSimulationWindow(on_start=self.run_pipeline, loaded_data = loaded_data)
+        new_sim_window.protocol("WM_DELETE_WINDOW", lambda: self.on_close_subwindow(new_sim_window))
+
+
+    def load_data_from_npz(self):
+        path = filedialog.askopenfilename(
+            initialdir=config.PROJECTS_DIR,
+            title="Select Simulation Project (.npz)",
+            filetypes=[("NPZ files", "*.npz"), ("All files", "*.*")]
+        )
+
+        if not path:
+            return None
+
+        try:
+            data = SimulationBuilder.load_project_data(path)
+            return data
+
+        except Exception as e:
+            messagebox.showerror("Loading Error", f"Failed to load project:\n{e}")
+            return None
+
+    def open_materials(self):
+        #TODO
+        pass
+
+    def show_post_setup_dialog(self, sim_config,grid, sources, receivers):
+        dialog = tk.Toplevel(self)
+        dialog.title("Setup Complete")
+        dialog.geometry("400x250")
+        dialog.grab_set()
+
+        tk.Label(dialog, text="Scene Configuration Finished!", font=('Arial', 12, 'bold')).pack(pady=10)
+
+        info_text = (
+            f"Sources: {len(sources)}\n"
+            f"Microphones: {len(receivers)}\n"
+        )
+        tk.Label(dialog, text=info_text, justify="left").pack(pady=5)
+
+        status_label = tk.Label(dialog, text="", font=('Arial', 10, 'bold'))
+        status_label.pack(pady=5)
+
+        result = {"action": "cancel"}
+
+        def on_save():
+            path = filedialog.asksaveasfilename(
+                initialdir=config.PROJECTS_DIR,
+                defaultextension=".npz",
+                filetypes=[("NPZ files", "*.npz")],
+                title="Save Full Simulation Project"
+            )
+            if path:
+                try:
+                    self.save_full_configuration(path, grid, sim_config, sources, receivers)
+                    filename = path.split('/')[-1]
+                    status_label.config(text=f"Saved: {filename}", fg="#28a745")
+                    dialog.update_idletasks()
+                except Exception as e:
+                    status_label.config(text=f"Save Error!", fg="red")
+                    print(f"Error details: {e}")
+
+        def on_start():
+            result["action"] = "start"
+            dialog.destroy()
+
+        def on_close():
+            result["action"] = "cancel"
+            dialog.destroy()
+
+        dialog.protocol("WM_DELETE_WINDOW", on_close)
+
+        btn_frame = tk.Frame(dialog)
+        btn_frame.pack(pady=20)
+
+        tk.Button(btn_frame, text="Save Project (.npz)", command=on_save, width=18).pack(side="left", padx=5)
+
+        tk.Button(btn_frame, text="START SIMULATION", command=on_start, width=18, bg="#28a745", fg="white",
+                  font=('Arial', 10, 'bold')).pack(side="left", padx=5)
+
+        self.wait_window(dialog)
+        return result["action"]
+

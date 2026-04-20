@@ -35,7 +35,7 @@ class Voxelizer:
         return config.MATERIAL_MAP[config.DEFAULT_MATERIAL_ID]["name"]
 
     def save_to_file(self):
-        save_file_name = config.SCENES_OUT_DIR / Path(self.file_path).with_suffix(".npz").name
+        save_file_name = config.VOXELS_DIR / Path(self.file_path).with_suffix(".npz").name
         np.savez(save_file_name, material_core=self.space_matrix)
         print("Saved scene to file: ", save_file_name)
 
