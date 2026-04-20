@@ -9,8 +9,6 @@ from .setup_loop import SetupLoop
 from tkinter import messagebox, filedialog, Grid
 import config
 import numpy as np
-from simulation import GridParams
-import taichi as ti
 
 class MainMenuWindow(tk.Tk):
     def __init__(self, on_start=None) -> None:
@@ -65,22 +63,34 @@ class MainMenuWindow(tk.Tk):
         window.destroy()
         self.deiconify()
 
-    def run_pipeline(self, cfg: dict) -> None:
+    def run_pipeline(self, cfg: dict, loaded_data: dict | None = None) -> None:
         sim_config = SimulationConfig.from_dict(cfg)
 
         builder = SimulationBuilder(sim_config)
-        grid = builder.compute_grid(cfg['sources'])
-        builder.voxelize(grid)
+        if loaded_data is not None:
+            grid = builder.grid_from_data(loaded_data)
+            # tu trzeba zrobic check_dx
+
+            space_matrix = loaded_data['material_core']
+
+            initial_sources = cfg['sources']
+            initial_receivers = loaded_data.get('receivers')
+        else:
+            grid = builder.compute_grid(cfg['sources'])
+            builder.voxelize(grid)
+
+            data = np.load(sim_config.npz_filepath)
+            space_matrix = data['material_core']
+            initial_sources = cfg['sources']
+            initial_receivers = []
+
 
         sim = Simulation(grid, sim_config.pml_thick)
-        data = np.load(sim_config.npz_filepath)
-
-        space_matrix = data['material_core']
         sim.init_voxels(space_matrix)
 
         renderer = SceneRenderer(grid)
 
-        sources, receivers = SetupLoop(renderer, grid,sim ,cfg['sources'] ).run() # ustawianie zrodel i mikrofonow
+        sources, receivers = SetupLoop(renderer, grid,sim ,initial_sources, initial_receivers).run() # ustawianie zrodel i mikrofonow
 
         action = self.show_post_setup_dialog(sim_config,grid, sources, receivers)  # mozliwosc zapisu konfiguracji do .npz
 
@@ -96,47 +106,12 @@ class MainMenuWindow(tk.Tk):
             self.deiconify()
 
 
-
     def load_simulation(self):
         loaded_data = self.load_data_from_npz()
 
-        fdtd_sim, grid, sim = self.prepare_data(loaded_data)
-
-        renderer = SceneRenderer(grid)
-        RenderLoop(fdtd_sim, grid, sim, renderer).run()
-
-
-
-    def prepare_data(self, data):
-        space_matrix = data['material_core']
-
-        source_manager = data['sources']
-        receiver_manager = data['receivers']
-
-        pml_thick = int(data['pml_thick'])
-        alpha_max = float(data['alpha_max'])
-
-        sound_speed = float(data['sound_speed'])
-        record_time = float(data['record_time'])
-
-        nodes_per_wavelength = int(data['nodes_per_wavelength'])
-        safety_factor = float(data['safety_factor'])
-
-        dx = float(data['dx'])
-        dt = float(data['dt'])
-
-        Nx = int(data['Nx'])
-        Ny = int(data['Ny'])
-        Nz = int(data['Nz'])
-
-        grid = GridParams(dx, dt, Nx, Ny, Nz)
-
-        sim = Simulation(grid, pml_thick)
-        sim.init_voxels(space_matrix)
-
-        fdtd_sim = FDTD_Simulation(sound_speed, dx, dt, pml_thick, alpha_max, safety_factor, source_manager, receiver_manager, space_matrix)
-
-        return fdtd_sim, grid, sim
+        self.withdraw()
+        new_sim_window = NewSimulationWindow(on_start=self.run_pipeline, loaded_data = loaded_data)
+        new_sim_window.protocol("WM_DELETE_WINDOW", lambda: self.on_close_subwindow(new_sim_window))
 
 
     def load_data_from_npz(self):
@@ -234,6 +209,7 @@ class MainMenuWindow(tk.Tk):
                 data_to_save = dict(data)  # mapa materialow
 
             data_to_save.update({
+                'obj_filepath': np.array(str(sim_config.obj_filepath)),
                 'sources': np.array(sources, dtype=object),
                 'receivers': np.array(receivers, dtype=object),
                 'pml_thick': np.array(sim_config.pml_thick),

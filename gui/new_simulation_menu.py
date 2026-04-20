@@ -4,11 +4,14 @@ from tkinter import ttk, filedialog, messagebox
 
 #Todo: oprocz tych poprawek co gadalismy to mozna zrobic dark theme
 class NewSimulationWindow(tk.Toplevel):
-    def __init__(self, on_start=None) -> None:
+    def __init__(self, on_start=None, loaded_data: dict | None = None ) -> None:
         super().__init__()
         self.title("FDTD simulation configuration menu")
         self.geometry("950x600")
         self.on_start = on_start
+
+        self.loaded_data = loaded_data
+        self.is_loaded = loaded_data is not None
 
         self.obj_filepath: str | None = None
         self.sources_data: list[dict] = []
@@ -42,11 +45,18 @@ class NewSimulationWindow(tk.Toplevel):
         )
         self.start_btn.pack(fill=tk.X, ipady=12, pady=10)
 
+        if self.is_loaded:
+            self.fill_loaded_data()
+
     def obj_widgets(self, parent: tk.Frame) -> None:
+        header_text = "1. Room geometry (Locked from .npz)" if self.is_loaded else "1. Room geometry (.obj)"
+        header_color = "#28a745" if self.is_loaded else "black"
+
         ttk.Label(
             parent,
             text="1. Room geometry (.obj)",
             font=("Arial", 10, "bold"),
+            foreground=header_color
         ).pack(anchor="w", pady=(0, 5))
 
         frame = ttk.Frame(parent)
@@ -55,7 +65,18 @@ class NewSimulationWindow(tk.Toplevel):
         self.lbl_obj_path = ttk.Label(frame, text="No file selected...", padding=(0,5))
         self.lbl_obj_path.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        ttk.Button(frame, text="Choose .obj", command=self.load_obj).pack(side=tk.RIGHT)
+        if self.is_loaded:
+            lock_label = ttk.Label(
+                frame,
+                text="🔒",
+                foreground="gray",
+                font=("Arial", 9, "bold")
+            )
+            lock_label.pack(side=tk.RIGHT, padx=5)
+
+            self.lbl_obj_path.configure(font=("Arial", 9, "italic"))
+        else:
+            ttk.Button(frame, text="Choose .obj", command=self.load_obj).pack(side=tk.RIGHT)
 
     def load_obj(self) -> None:
         filepath = filedialog.askopenfilename(
@@ -187,7 +208,6 @@ class NewSimulationWindow(tk.Toplevel):
 
 
     def on_source_type_change(self, event: tk.Event) -> None:
-        """Switch parameter panel based on selected source type."""
         s_type = self.combo_type.get()
         if s_type == "Gauss":
             self.frame_custom.pack_forget()
@@ -265,7 +285,6 @@ class NewSimulationWindow(tk.Toplevel):
             messagebox.showerror("Error", "Amplitude, Frequency and Time must be valid numbers!")
 
     def remove_source(self) -> None:
-        """Remove selected rows from the sources list and the backing data."""
         selected = self.tree.selection()
         if not selected:
             messagebox.showinfo("Info", "Please select a source to remove.")
@@ -306,13 +325,14 @@ class NewSimulationWindow(tk.Toplevel):
             messagebox.showerror("Error", "Check the validity of the entered parameters.")
             return
 
-        if not self.obj_filepath:
-            messagebox.showwarning("Warning", "No .obj geometry file selected!")
-            return
+        if not self.is_loaded:
+            if not self.obj_filepath:
+                messagebox.showwarning("Warning", "No .obj geometry file selected!")
+                return
 
-        if not os.path.exists(self.obj_filepath):
-            messagebox.showerror("Error", "The .obj file does not exist or has been deleted!")
-            return
+            if not os.path.exists(self.obj_filepath):
+                messagebox.showerror("Error", "The .obj file does not exist or has been deleted!")
+                return
 
         if not self.sources_data:
             messagebox.showwarning("Warning", "No sound sources have been added!")
@@ -339,9 +359,68 @@ class NewSimulationWindow(tk.Toplevel):
         print(f"Sources:       {config['sources']}")
         print(f"PML:           {config['pml_thickness']},  Alpha max: {config['alpha_max']}")
         if self.on_start:
-            self.on_start(config)
+            self.on_start(config, self.loaded_data)
             self.destroy()
 
-if __name__ == "__main__":
-    app = MainMenuWindow()
-    app.mainloop()
+    def fill_loaded_data(self) -> None:
+        if not self.is_loaded:
+            return
+
+        d = self.loaded_data
+        from pathlib import Path
+
+        if 'obj_filepath' in d:
+            full_path = str(d['obj_filepath'])
+            self.obj_filepath = full_path
+            display_name = Path(full_path).name
+        else:
+            self.obj_filepath = "Embedded in .npz (legacy file)"
+            display_name = self.obj_filepath
+
+        if hasattr(self, 'lbl_obj_path'):
+            self.lbl_obj_path.config(text=f"Room geometry: {display_name}")
+
+        if 'pml_thick' in d and hasattr(self, 'entry_pml'):
+            self.entry_pml.delete(0, tk.END)
+            self.entry_pml.insert(0, str(int(d['pml_thick'])))
+
+        if 'alpha_max' in d and hasattr(self, 'entry_alpha'):
+            self.entry_alpha.delete(0, tk.END)
+            self.entry_alpha.insert(0, str(float(d['alpha_max'])))
+
+        if 'record_time' in d:
+            if hasattr(self, 'rec_time_var'):
+                self.rec_time_var.set(float(d['record_time']))
+            elif hasattr(self, 'entry_rec_time'):
+                self.entry_rec_time.delete(0, tk.END)
+                self.entry_rec_time.insert(0, str(float(d['record_time'])))
+
+        if 'sources' in d:
+            sources = d['sources']
+            self.sources_data = sources.tolist() if hasattr(sources, 'tolist') else sources
+
+            if hasattr(self, 'tree'):
+                for item in self.tree.get_children():
+                    self.tree.delete(item)
+
+                for src in self.sources_data:
+                    if src['type'] == "Gauss":
+                        details = f"Amp: {src['amp']}, Freq: {src['freq']} Hz"
+                    else:
+                        import os
+                        fname = os.path.basename(src.get('wav_path', 'unknown.wav'))
+                        details = f"File: {fname}"
+
+                    self.tree.insert(
+                        "",
+                        tk.END,
+                        values=(
+                            src['type'],
+                            src['name'],
+                            src['time'],
+                            src.get('vol', "1.0"),
+                            details
+                        )
+                    )
+
+        print(f"GUI populated with data from: {display_name}")

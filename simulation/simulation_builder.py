@@ -48,6 +48,25 @@ class SimulationBuilder:
         self._log_grid(grid)
         return grid
 
+    def grid_from_data(self, loaded_data) -> GridParams:
+        try:
+            dx = float(loaded_data['dx'])
+            dt = float(loaded_data['dt'])
+            Nx = int(loaded_data['Nx'])
+            Ny = int(loaded_data['Ny'])
+            Nz = int(loaded_data['Nz'])
+
+            return GridParams(
+                dx=dx,
+                dt=dt,
+                Nx=Nx,
+                Ny=Ny,
+                Nz=Nz
+            )
+        except KeyError as e:
+            print(f"Error: Missing grid parameter in loaded data: {e}")
+            raise ValueError(f"Incomplete grid data in NPZ file. Missing: {e}")
+
     def voxelize(self, grid: GridParams) -> None:
         """Runs voxelization and saves to .npz"""
         voxelizer = Voxelizer(
