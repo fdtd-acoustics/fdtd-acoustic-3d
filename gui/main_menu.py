@@ -53,7 +53,6 @@ class MainMenuWindow(tk.Tk):
             "Version 1.0".center(50)
         )
 
-
     def create_new_sim(self):
         self.withdraw()
         new_sim_window = NewSimulationWindow(on_start=self.run_pipeline)
@@ -63,13 +62,14 @@ class MainMenuWindow(tk.Tk):
         window.destroy()
         self.deiconify()
 
-    def run_pipeline(self, cfg: dict, loaded_data: dict | None = None) -> None:
+    def run_pipeline(self, cfg: dict, loaded_data: dict | None = None) -> bool:
         sim_config = SimulationConfig.from_dict(cfg)
 
         builder = SimulationBuilder(sim_config)
         if loaded_data is not None:
             grid = builder.grid_from_data(loaded_data)
 
+            # check if source frequencies are consistent with the grid resolution
             if not builder.validate_dx(grid, cfg['sources']):
                 from tkinter import messagebox
 
@@ -97,7 +97,6 @@ class MainMenuWindow(tk.Tk):
             initial_sources = cfg['sources']
             initial_receivers = []
 
-
         sim = Simulation(grid, sim_config.pml_thick)
         sim.init_voxels(space_matrix)
 
@@ -112,12 +111,9 @@ class MainMenuWindow(tk.Tk):
             receiver_manager = ReceiverManager.build_receiver_manager(receivers, sim_config.record_time, grid.dt)
 
             fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
-
             RenderLoop(fdtd_sim, grid, sim, renderer).run()
-
         else:
             self.deiconify()
-
         return True
 
 
@@ -135,23 +131,16 @@ class MainMenuWindow(tk.Tk):
             title="Select Simulation Project (.npz)",
             filetypes=[("NPZ files", "*.npz"), ("All files", "*.*")]
         )
+
         if not path:
             return None
 
         try:
-            data = np.load(path, allow_pickle=True)
-
-            if 'sources' not in data.files:
-                messagebox.showwarning(
-                    "Incomplete Project",
-                    "This file only contains geometry. You will need to set up sources and microphones again."
-                )
-
-            print(f"Project loaded successfully: {path}")
+            data = SimulationBuilder.load_project_data(path)
             return data
 
         except Exception as e:
-            messagebox.showerror("Loading Error", f"Failed to load the file:\n{e}")
+            messagebox.showerror("Loading Error", f"Failed to load project:\n{e}")
             return None
 
     def open_materials(self):
@@ -215,40 +204,3 @@ class MainMenuWindow(tk.Tk):
         self.wait_window(dialog)
         return result["action"]
 
-
-
-    def save_full_configuration(self, path, grid, sim_config, sources, receivers):
-        try:
-            base_npz_path = sim_config.npz_filepath
-            with np.load(base_npz_path, allow_pickle=True) as data:
-                data_to_save = dict(data)  # mapa materialow
-
-            data_to_save.update({
-                'obj_filepath': np.array(str(sim_config.obj_filepath)),
-                'sources': np.array(sources, dtype=object),
-                'receivers': np.array(receivers, dtype=object),
-                'pml_thick': np.array(sim_config.pml_thick),
-                'alpha_max': np.array(sim_config.alpha_max),
-                'record_time': np.array(sim_config.record_time),
-                'sound_speed': np.array(sim_config.sound_speed),
-
-                'dx': np.array(grid.dx),
-                'dt': np.array(grid.dt),
-
-                'safety_factor': np.array(sim_config.safety_factor),
-                'nodes_per_wavelength': np.array(sim_config.nodes_per_wavelength),
-
-                'Nx':np.array(grid.Nx),
-                'Ny':np.array(grid.Ny),
-                'Nz':np.array(grid.Nz)
-            })
-
-            np.savez(path, **data_to_save)
-            print(f"Full configuration merged and saved to: {base_npz_path}")
-
-        except FileNotFoundError:
-            print(f"Error: Base voxel file not found at {path}")
-            raise
-        except Exception as e:
-            print(f"An error occurred during saving: {e}")
-            raise

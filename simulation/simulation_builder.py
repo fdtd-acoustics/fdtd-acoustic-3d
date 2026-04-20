@@ -37,7 +37,6 @@ class SimulationBuilder:
 
     def compute_grid(self, sources_cfg: list[dict]) -> GridParams:
         dx = self.compute_dx(sources_cfg)
-
         dt = self._compute_dt(dx)
 
         x_meters, y_meters, z_meters = self._load_obj_dimensions()
@@ -138,9 +137,49 @@ class SimulationBuilder:
         return max_freq
 
 
-
     @staticmethod
     def _log_grid(grid: GridParams) -> None:
         print("Simulation parameters:")
         print(f"  dx={grid.dx:.6f}  dt={grid.dt:.6f}")
         print(f"  Nx={grid.Nx}  Ny={grid.Ny}  Nz={grid.Nz}")
+
+    @staticmethod
+    def save_full_configuration(self, path, grid, sim_config, sources, receivers):
+        try:
+            base_npz_path = sim_config.npz_filepath
+            with np.load(base_npz_path, allow_pickle=True) as data:
+                data_to_save = dict(data)  # mapa materialow
+
+            data_to_save.update({
+                'obj_filepath': np.array(str(sim_config.obj_filepath)),
+                'sources': np.array(sources, dtype=object),
+                'receivers': np.array(receivers, dtype=object),
+                'pml_thick': np.array(sim_config.pml_thick),
+                'alpha_max': np.array(sim_config.alpha_max),
+                'record_time': np.array(sim_config.record_time),
+                'sound_speed': np.array(sim_config.sound_speed),
+
+                'dx': np.array(grid.dx),
+                'dt': np.array(grid.dt),
+                'Nx': np.array(grid.Nx),
+                'Ny': np.array(grid.Ny),
+                'Nz': np.array(grid.Nz),
+
+                'safety_factor': np.array(sim_config.safety_factor),
+                'nodes_per_wavelength': np.array(sim_config.nodes_per_wavelength)
+            })
+
+            np.savez(path, **data_to_save)
+            print(f"Full configuration merged and saved to: {base_npz_path}")
+
+        except FileNotFoundError:
+            print(f"Error: Base voxel file not found at {path}")
+            raise
+        except Exception as e:
+            print(f"An error occurred during saving: {e}")
+            raise
+
+    @staticmethod
+    def load_project_data(path: str) -> dict:
+        data = np.load(path, allow_pickle=True)
+        return dict(data)
