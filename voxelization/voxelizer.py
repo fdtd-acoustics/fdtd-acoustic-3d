@@ -4,6 +4,8 @@ import numpy as np
 import trimesh
 import config
 
+SAFETY_MARGIN_FOR_ITER = 2
+
 
 #Todo: refactor tej klasy
 class Voxelizer:
@@ -36,6 +38,7 @@ class Voxelizer:
 
     def save_to_file(self):
         save_file_name = config.VOXELS_DIR / Path(self.file_path).with_suffix(".npz").name
+        save_file_name.parent.mkdir(parents=True, exist_ok=True)
         np.savez(save_file_name, material_core=self.space_matrix)
         print("Saved scene to file: ", save_file_name)
 
@@ -50,8 +53,12 @@ class Voxelizer:
 
     def voxelize_geometry(self,geom, geom_name):
 
-        #wokselizacja obiektu
-        voxelized_object = geom.voxelized(pitch=self.DX)
+        #wokselizacja obiektu - max_iter liczone z najdluzszej krawedzi mesha
+        max_edge_len = float(geom.edges_unique_length.max()) if len(geom.edges_unique_length) else 1.0
+        max_iter = max(10, int(np.ceil(np.log2(max_edge_len / self.DX))) + SAFETY_MARGIN_FOR_ITER)
+        print(f" -> Voxelizing with max_iter={max_iter} based on max edge length {max_edge_len:.4f}m and DX={self.DX:.4f}m")
+        #sprawdzalem dla metody ray ale jest niedokladna - niektore sciany sie nie wokselizuja
+        voxelized_object = geom.voxelized(pitch=self.DX, method="subdivide", max_iter=max_iter)
 
         #wypelniania jesli nie jest sciana
         is_wall = "wall" in geom_name.lower()
@@ -98,13 +105,3 @@ class Voxelizer:
             self.space_matrix[x,y,z] = np.maximum(values, material_id)
 
         self.save_to_file()
-
-
-
-
-
-
-
-
-
-
