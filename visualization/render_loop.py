@@ -19,6 +19,9 @@ class RenderLoop:
         self._is_paused = False
         self._render_enabled = True
 
+        self.show_voxels = False
+        self.show_mesh = True
+
     def run(self) -> None:
         plane_geo_1 = PlaneGeometry(self._grid.Nx, self._grid.Nz)
         plane_geo_2   = PlaneGeometry(self._grid.Nx, self._grid.Ny)
@@ -36,7 +39,14 @@ class RenderLoop:
                 current_pressure = self._fdtd_sim.get_current_pressure()
                 self._sim.update_planes(slice_y, slice_z, current_pressure)
 
-            self._renderer.render_frame(simulation=self._sim, plane_geo_1=plane_geo_1, plane_geo_2=plane_geo_2, render_enabled=self._render_enabled)
+            self._renderer.render_frame(
+                simulation=self._sim,
+                plane_geo_1=plane_geo_1,
+                plane_geo_2=plane_geo_2,
+                render_enabled=self._render_enabled,
+                show_voxels=self.show_voxels,
+                show_mesh=self.show_mesh
+            )
 
     def _handle_gui(self,
                     slice_y: int,
@@ -61,6 +71,7 @@ class RenderLoop:
             slice_y = gui.slider_int("Horizontal Slice", slice_y, 0, self._grid.Ny - 1)
             slice_z = gui.slider_int("Vertical Slice", slice_z, 0, self._grid.Nz - 1)
 
-
+            self.show_voxels = gui.checkbox("Show Voxels", self.show_voxels)
+            self.show_mesh = gui.checkbox("Show Mesh", self.show_mesh)
 
         return slice_y, slice_z

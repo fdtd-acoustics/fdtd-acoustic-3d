@@ -10,36 +10,39 @@ class SceneRenderer:
         self.camera = ti.ui.Camera()
         self.camera.position(grid.Nx - grid.Nx//10, grid.Ny - grid.Ny//10, grid.Nz - grid.Nz//10)
         self.camera.lookat(grid.Nx//2, grid.Ny//2, grid.Nz//2)
+        self.camera.fov(60)
+        self.light_pos = (grid.Nx / 2, grid.Ny - grid.Ny / 5, grid.Nz / 2)
 
-    def render_frame(self, simulation, plane_geo_1, plane_geo_2, render_enabled, setup_data=None):
+    def render_frame(self, simulation, plane_geo_1, plane_geo_2, render_enabled, setup_data=None, show_voxels=False, show_mesh=False):
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
 
         self.canvas.set_background_color(config.BG_COLOR)
-        #self.scene.ambient_light((1, 1, 1))
         self.scene.ambient_light((0.6, 0.6, 0.6))
-        self.scene.point_light(pos=(4.6, 10.0, 4.6), color=(1.0, 1.0, 1.0))
+        self.scene.point_light(pos=self.light_pos, color=(1.0, 1.0, 1.0))
 
         if render_enabled:
-            if simulation.voxels_pos is not None:
-                self.scene.particles(centers=simulation.voxels_pos, radius=0.5,
-                                     per_vertex_color=simulation.voxels_color)
+            # Voxels Rendering
+            if show_voxels and simulation.voxels_pos is not None:
+                self.scene.particles(centers=simulation.voxels_pos, radius=0.5, per_vertex_color=simulation.voxels_color)
 
+            # Mesh Rendering
+            if show_mesh and simulation.has_mesh:
+                self.scene.mesh(simulation.v_mesh, indices=simulation.f_mesh, per_vertex_color=simulation.c_mesh)
+
+            # Setup data
             if setup_data is not None:
                 self.scene.particles(centers=setup_data["sources_pos"], radius=0.6, color=(1, 0, 0))
                 self.scene.particles(centers=setup_data["mics_pos"], radius=0.6, color=(0, 0.5, 1))
 
+            # 2D Slices
             elif plane_geo_1 is not None and plane_geo_2 is not None:
-                self.scene.mesh(simulation.plane_v_1, indices=plane_geo_1.indices,
-                                per_vertex_color=simulation.plane_c_1)
-                self.scene.mesh(simulation.plane_v_2, indices=plane_geo_2.indices,
-                                per_vertex_color=simulation.plane_c_2)
+                self.scene.mesh(simulation.plane_v_1, indices=plane_geo_1.indices, per_vertex_color=simulation.plane_c_1)
+                self.scene.mesh(simulation.plane_v_2, indices=plane_geo_2.indices, per_vertex_color=simulation.plane_c_2)
 
             self.canvas.scene(self.scene)
         else:
             pass
-
-
 
         self.window.show()
 
