@@ -24,6 +24,9 @@ class SetupLoop():
         self._edit_type: str | None = "SOURCE" # can be "SOURCE", "MIC", or None
         self._edit_index: int = 0
 
+        self.show_voxels = False
+        self.show_mesh = True
+
     def run(self) -> tuple[list[dict], list[dict]]:
 
         setup_vis = {
@@ -39,7 +42,9 @@ class SetupLoop():
                 plane_geo_1=None,
                 plane_geo_2=None,
                 render_enabled=True,
-                setup_data=setup_vis
+                setup_data=setup_vis,
+                show_voxels=self.show_voxels,
+                show_mesh=self.show_mesh
             )
 
         return self._sources_to_setup, self._microphones
@@ -47,6 +52,11 @@ class SetupLoop():
     def _handle_setup_gui(self, setup_vis):
         gui = self._renderer.window.get_gui()
         with gui.sub_window("Setup Mode", 0.05, 0.05, 0.5, 0.6):
+            gui.text("=== VIEW SETTINGS ===")
+            self.show_voxels = gui.checkbox("Show Voxels", self.show_voxels)
+            self.show_mesh = gui.checkbox("Show Mesh", self.show_mesh)
+            gui.text("")
+
             self._gui_draw_sources_list(gui)
             self._gui_draw_microphones_list(gui, setup_vis)
             self._gui_draw_editor(gui, setup_vis)
