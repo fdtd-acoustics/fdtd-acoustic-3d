@@ -6,7 +6,6 @@ import config
 
 SAFETY_MARGIN_FOR_ITER = 2
 
-
 #Todo: refactor tej klasy
 class Voxelizer:
     def __init__(self, NX, NY, NZ, dx, file_path):
@@ -47,12 +46,13 @@ class Voxelizer:
         #np.savez(save_file_name, material_core=self.space_matrix)
         #print("Saved scene to file: ", save_file_name)
 
-        save_file_name = config.SCENES_OUT_DIR / Path(self.file_path).with_suffix(".npz").name
+        save_file_name = config.VOXELS_DIR / Path(self.file_path).with_suffix(".npz").name
 
         combined_vertices = np.vstack(self.mesh_vertices) if self.mesh_vertices else np.array([])
         combined_faces = np.vstack(self.mesh_faces) if self.mesh_faces else np.array([])
         combined_colors = np.vstack(self.mesh_colors) if self.mesh_colors else np.array([])
 
+        save_file_name.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             save_file_name,
             material_core=self.space_matrix,
@@ -87,7 +87,6 @@ class Voxelizer:
         is_wall = "wall" in geom_name.lower()
         if not is_wall:
             voxelized_object = self.fill_normal_objects(voxelized_object)
-
 
         points = voxelized_object.points
 

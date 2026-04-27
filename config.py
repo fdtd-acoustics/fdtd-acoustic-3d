@@ -35,7 +35,6 @@ AUDIO_DIR  = ASSETS_DIR / "audio"  # pliki audio
 
 DATA_DIR = ROOT_DIR / "data"
 VOXELS_DIR = DATA_DIR / "voxels"     # pliki .npz po voxelizacji
-MESHES_DIR = DATA_DIR / "meshes"     # pliki .obj po voxelizacji z przypisanym materiałem
 PROJECTS_DIR = DATA_DIR / "projects"  # pełne zapisy konfiguracji
 
 OUTPUT_DIR = ROOT_DIR / "output"

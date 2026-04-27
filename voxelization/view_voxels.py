@@ -6,9 +6,9 @@ import config
 # Settings
 ti.init(arch=ti.gpu)
 
-DX = 0.034000
-output_file_path = config.SCENES_OUT_DIR / "Untitled.npz"
-input_mesh_path = config.SCENES_MODELS_DIR / "Untitled.obj"
+DX = 0.034300
+output_file_path = config.VOXELS_DIR / "Untitled.npz"
+input_mesh_path = config.MODELS_DIR / "Untitled.obj"
 
 def show_taichi_3d():
     # --- Preparing Voxels from .npz ---
@@ -18,7 +18,8 @@ def show_taichi_3d():
     # Removing air
     base_mask = space_matrix > 0
     indices = np.argwhere(base_mask)
-    points = indices * DX
+    #points = indices * DX
+    points = indices
     num_particles = len(points)
 
     # Material Colors
@@ -35,7 +36,7 @@ def show_taichi_3d():
     print(f"===>Prepared {num_particles} voxels to show.")
 
     # --- Preparing Mesh from .npz ---
-    mesh_verts_np = data['mesh_vertices']
+    mesh_verts_np = data['mesh_vertices'] / DX
     mesh_faces_np = data['mesh_faces']
     mesh_colors_np = data['mesh_colors']
 
@@ -53,7 +54,7 @@ def show_taichi_3d():
     scene = window.get_scene()
     camera = ti.ui.Camera()
 
-    center = (np.array(space_matrix.shape) / 2) * DX
+    center = (np.array(space_matrix.shape) / 2)
     camera.position(center[0], center[1], center[2] + 20)
     camera.lookat(center[0], center[1], center[2])
 
@@ -66,10 +67,10 @@ def show_taichi_3d():
         scene.set_camera(camera)
 
         scene.ambient_light((0.6, 0.6, 0.6))
-        scene.point_light(pos=(center[0], center[1] + 20, center[2]), color=(1, 1, 1))
+        scene.point_light(pos=(center[0], space_matrix.shape[1] - space_matrix.shape[1]//5, center[2]), color=(1, 1, 1))
 
         if show_voxels:
-            scene.particles(pos_field, radius=0.04, per_vertex_color=color_field)
+            scene.particles(pos_field, radius=0.5, per_vertex_color=color_field)
 
         if show_mesh:
             scene.mesh(v_mesh, indices=f_mesh, per_vertex_color=c_mesh)
