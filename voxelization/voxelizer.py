@@ -14,9 +14,10 @@ class Voxelizer:
         self.NZ = NZ
         self.DX = dx
         self.file_path = file_path
-        self.core_x = NX //2
-        self.core_y = NY //2
-        self.core_z = NZ // 2
+        #self.core_x = NX //2
+        #self.core_y = NY //2
+        #self.core_z = NZ // 2
+        self.grid_center = np.array([self.NX - 1, self.NY - 1, self.NZ - 1]) / 2.0
         self.space_matrix = np.zeros((NX,NY,NZ), dtype=np.int8)
 
         # 3D Mesh Variables
@@ -24,6 +25,8 @@ class Voxelizer:
         self.mesh_faces = []
         self.mesh_colors = []
         self.vertex_offset = 0
+
+        self.scene_center = np.zeros(3)
 
 # TODO: Test czy materialy tez sa
 
@@ -77,21 +80,23 @@ class Voxelizer:
         # max_iter liczone z najdluzszej krawedzi mesha
         max_edge_len = float(geom.edges_unique_length.max()) if len(geom.edges_unique_length) else 1.0
         max_iter = max(10, int(np.ceil(np.log2(max_edge_len / self.DX))) + SAFETY_MARGIN_FOR_ITER)
-        print(
-            f" -> Voxelizing with max_iter={max_iter} based on max edge length {max_edge_len:.4f}m and DX={self.DX:.4f}m")
+        print(f" -> Voxelizing with max_iter={max_iter} based on max edge length {max_edge_len:.4f}m and DX={self.DX:.4f}m")
+
         # sprawdzalem dla metody ray ale jest niedokladna - niektore sciany sie nie wokselizuja
         voxelized_object = geom.voxelized(pitch=self.DX, method="subdivide", max_iter=max_iter)
 
-
         # Fill inside if not wall
-        is_wall = "wall" in geom_name.lower()
+        mat_name = self.get_material_name(geom_name)
+        is_wall = "wall" in geom_name.lower() or "wall" in mat_name.lower()
         if not is_wall:
             voxelized_object = self.fill_normal_objects(voxelized_object)
 
-        points = voxelized_object.points
+        points = voxelized_object.points - self.scene_center
 
         # Meters to grid indexes
-        indices = np.round(points / self.DX).astype(int) + np.array([self.core_x, self.core_y, self.core_z])
+        #indices = np.round(points / self.DX).astype(int) + np.array([self.core_x, self.core_y, self.core_z])
+        grid_points = (points / self.DX) + self.grid_center
+        indices = np.floor(grid_points + 0.5).astype(int)
 
         # Validation if points are on the grid
         valid_mask = np.all(
@@ -104,36 +109,12 @@ class Voxelizer:
         return valid_indices
 
     def load_scene(self):
-        #scene = trimesh.load(self.file_path, force='scene', process=True)
-        #
-        #print(f"Number of objects detected in scene: {len(scene.geometry.items())}")
-        #
-        #for geom_name, geom in scene.geometry.items():
-        #    print(f"Processing ==> {geom_name}")
-        #    print(f" -> Is it watertight? {geom.is_watertight}")
-        #
-        #    indices = self.voxelize_geometry(geom, geom_name)
-        #
-        #    if len(indices) == 0:
-        #        print(f" -> Object is outside of domain - skipping")
-        #        continue
-        #    material_id = self.get_material_id(geom_name)
-        #
-        #    print(f" -> Material = {self.get_material_name(geom_name)}, found voxels: {len(indices)}")
-        #
-        #    #wpisywanie do glownej macierzy
-        #    x,y,z = indices.T
-        #    values = self.space_matrix[x,y,z]
-        #    self.space_matrix[x,y,z] = np.maximum(values, material_id)
-        #
-        #self.save_to_file()
+        scene = trimesh.load(self.file_path, force='scene')
+        geometries = scene.geometry
+        scene_bounds = scene.bounds
 
-        scene = trimesh.load(self.file_path)
-        if isinstance(scene, trimesh.Trimesh):
-            geometries = {"merged_object": scene}
-        else:
-            geometries = scene.geometry
-
+        # Finding center of the .obj model for later centering if obj is not centered
+        self.scene_center = np.mean(scene_bounds, axis=0)
         print(f"Number of objects detected in scene: {len(geometries)}")
 
         for geom_name, geom in geometries.items():
@@ -159,8 +140,10 @@ class Voxelizer:
             verts = geom.vertices
             faces = geom.faces
 
-            offset_vector = np.array([self.core_x, self.core_y, self.core_z]) * self.DX
-            aligned_verts = verts + offset_vector
+            # Shift mesh verticies to the calculated scene center
+            shifted_verts = verts - self.scene_center
+            offset_vector = self.grid_center * self.DX
+            aligned_verts = shifted_verts + offset_vector
 
             # Mesh Colors for materials
             material_id = self.get_material_id(geom_name)

@@ -7,8 +7,8 @@ import config
 ti.init(arch=ti.gpu)
 
 DX = 0.034300
-output_file_path = config.VOXELS_DIR / "Untitled.npz"
-input_mesh_path = config.MODELS_DIR / "Untitled.obj"
+output_file_path = config.VOXELS_DIR / "Untitled2.npz"
+input_mesh_path = config.MODELS_DIR / "Untitled2.obj"
 
 def show_taichi_3d():
     # --- Preparing Voxels from .npz ---
@@ -63,7 +63,7 @@ def show_taichi_3d():
     show_mesh = False
 
     while window.running:
-        camera.track_user_inputs(window, movement_speed=0.2, hold_key=ti.ui.RMB)
+        camera.track_user_inputs(window, movement_speed=0.5, hold_key=ti.ui.RMB)
         scene.set_camera(camera)
 
         scene.ambient_light((0.6, 0.6, 0.6))
