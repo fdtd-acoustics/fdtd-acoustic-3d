@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 @ti.data_oriented
 class ReceiverManager:
     def __init__(self,max_receivers: int, max_steps: int, dt):
-        self.max_receivers = max_receivers
+        self.max_receivers = max(1, max_receivers)
         self.max_steps = max_steps
         self.dt = dt
         self.saved = 0
@@ -16,8 +16,8 @@ class ReceiverManager:
         self.count[None] = 0
 
         self.names = []
-        self.pos = ti.Vector.field(3, dtype=ti.i32, shape=max_receivers)
-        self.history = ti.field(dtype=ti.f32, shape=(max_receivers, max_steps))
+        self.pos = ti.Vector.field(3, dtype=ti.i32, shape=self.max_receivers)
+        self.history = ti.field(dtype=ti.f32, shape=(self.max_receivers, max_steps))
 
     def add_receiver(self, x, y, z, name):
         idx = self.count[None]
@@ -25,6 +25,22 @@ class ReceiverManager:
             self.pos[idx] = [x, y, z]
             self.names.append(name)
             self.count[None] += 1
+
+    @classmethod
+    def build_receiver_manager(cls, receivers: list[dict], max_time:float, dt:float) -> 'ReceiverManager':
+        max_steps = int(np.ceil(max_time / dt))
+        manager = cls(max_receivers=len(receivers), max_steps=max_steps, dt=dt)
+
+        for r in receivers:
+            x = int(r.get('x', 50))
+            y = int(r.get('y', 50))
+            z = int(r.get('z', 50))
+
+            name = r.get('name', f"mic_{manager.count[None] + 1}")
+
+            manager.add_receiver(x, y, z, name)
+
+        return manager
 
     def update_receivers(self, p_field: ti.template(), step: ti.i32):
         if step < self.max_steps:

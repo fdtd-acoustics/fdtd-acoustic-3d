@@ -28,10 +28,16 @@ DEFAULT_DENSITY     = MATERIAL_MAP[0]["density"]
 
 # === Paths ===
 ROOT_DIR = Path(__file__).parent
-SCENES_DIR = ROOT_DIR / "scenes"
-SCENES_MODELS_DIR = SCENES_DIR / "models"
-SCENES_OUT_DIR = SCENES_DIR / "output"
 
-RESULTS_DIR = "results"
-WAV_DIR  = f"{RESULTS_DIR}/signals"
-PLOT_DIR = f"{RESULTS_DIR}/plots"
+ASSETS_DIR = ROOT_DIR / "assets"
+MODELS_DIR = ASSETS_DIR / "models"   # modele
+AUDIO_DIR  = ASSETS_DIR / "audio"  # pliki audio
+
+DATA_DIR = ROOT_DIR / "data"
+VOXELS_DIR = DATA_DIR / "voxels"     # pliki .npz po voxelizacji
+MESHES_DIR = DATA_DIR / "meshes"     # pliki .obj po voxelizacji z przypisanym materiałem
+PROJECTS_DIR = DATA_DIR / "projects"  # pełne zapisy konfiguracji
+
+OUTPUT_DIR = ROOT_DIR / "output"
+WAV_DIR  = OUTPUT_DIR / "signals"    # pliki .wav
+PLOT_DIR = OUTPUT_DIR / "plots"     # wykresy

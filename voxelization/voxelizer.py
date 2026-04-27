@@ -4,6 +4,8 @@ import numpy as np
 import trimesh
 import config
 
+SAFETY_MARGIN_FOR_ITER = 2
+
 
 #Todo: refactor tej klasy
 class Voxelizer:
@@ -60,7 +62,6 @@ class Voxelizer:
         )
         print("Saved scene to file: ", save_file_name)
 
-
     def fill_normal_objects(self,voxelized_object):
         filled_object = voxelized_object.fill()
         if len(filled_object.points) > 0:
@@ -71,13 +72,22 @@ class Voxelizer:
             return voxelized_object
 
     def voxelize_geometry(self,geom, geom_name):
+
         # Voxelization
-        voxelized_object = geom.voxelized(pitch=self.DX)
+        # max_iter liczone z najdluzszej krawedzi mesha
+        max_edge_len = float(geom.edges_unique_length.max()) if len(geom.edges_unique_length) else 1.0
+        max_iter = max(10, int(np.ceil(np.log2(max_edge_len / self.DX))) + SAFETY_MARGIN_FOR_ITER)
+        print(
+            f" -> Voxelizing with max_iter={max_iter} based on max edge length {max_edge_len:.4f}m and DX={self.DX:.4f}m")
+        # sprawdzalem dla metody ray ale jest niedokladna - niektore sciany sie nie wokselizuja
+        voxelized_object = geom.voxelized(pitch=self.DX, method="subdivide", max_iter=max_iter)
+
 
         # Fill inside if not wall
         is_wall = "wall" in geom_name.lower()
         if not is_wall:
             voxelized_object = self.fill_normal_objects(voxelized_object)
+
 
         points = voxelized_object.points
 
@@ -165,13 +175,3 @@ class Voxelizer:
             self.vertex_offset += len(aligned_verts)
 
         self.save_to_file()
-
-
-
-
-
-
-
-
-
-
