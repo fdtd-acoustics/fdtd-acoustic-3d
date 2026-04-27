@@ -86,6 +86,10 @@ class MainMenuWindow(tk.Tk):
 
             space_matrix = loaded_data['material_core']
 
+            mesh_verts = loaded_data.get('mesh_vertices')
+            mesh_faces = loaded_data.get('mesh_faces')
+            mesh_colors = loaded_data.get('mesh_colors')
+
             initial_sources = cfg['sources']
             initial_receivers = loaded_data.get('receivers')
         else:
@@ -94,11 +98,17 @@ class MainMenuWindow(tk.Tk):
 
             data = np.load(sim_config.npz_filepath)
             space_matrix = data['material_core']
+
+            mesh_verts = data.get('mesh_vertices')
+            mesh_faces = data.get('mesh_faces')
+            mesh_colors = data.get('mesh_colors')
+
             initial_sources = cfg['sources']
             initial_receivers = []
 
         sim = Simulation(grid, sim_config.pml_thick)
         sim.init_voxels(space_matrix)
+        sim.init_mesh(mesh_verts, mesh_faces, mesh_colors, dx=grid.dx)
 
         renderer = SceneRenderer(grid)
 

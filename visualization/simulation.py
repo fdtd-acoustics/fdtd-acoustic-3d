@@ -1,10 +1,8 @@
-import math
-
+import config
 import numpy as np
 import taichi as ti
 
 from simulation import GridParams
-from . import vis_config as config
 
 
 @ti.data_oriented
@@ -26,14 +24,18 @@ class Simulation:
         self.plane_v_2 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Ny) # Slice pressure vertical
         self.plane_c_2 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Ny) # Slice colors vertical
 
+        # --- Voxels ---
         self.voxels_pos = None
         self.voxels_color = None
         self.num_voxels = 0
 
-    def init_voxels(self, space_matrix: np.ndarray):
-        # data = np.load(file_path)
-        # space_matrix = data['material_core']
+        # --- Mesh ---
+        self.v_mesh = None
+        self.f_mesh = None
+        self.c_mesh = None
+        self.has_mesh = False
 
+    def init_voxels(self, space_matrix: np.ndarray):
         base_mask = space_matrix > 0
         indices = np.argwhere(base_mask)
 
@@ -43,15 +45,12 @@ class Simulation:
         if self.num_voxels == 0:
             return
 
-        #inv_n = 1.0 / config.N
-        #points = indices * inv_n
-
         points = indices
 
         colors = np.zeros((self.num_voxels, 3), dtype=np.float32)
-        colors[space_matrix[base_mask] == 1] = [0.5, 0.5, 0.5]  # Gray (wall)
-        colors[space_matrix[base_mask] == 2] = [0.9, 0.7, 0.1]  # Yellow (other material)
-        colors[colors.sum(axis=1) == 0] = [0.7, 0.7, 0.7]
+        for mat_id, mat_info in config.MATERIAL_MAP.items():
+            if "color" in mat_info:
+                colors[space_matrix[base_mask] == mat_id] = mat_info["color"]
 
         self.voxels_pos = ti.Vector.field(3, dtype=ti.f32, shape=self.num_voxels)
         self.voxels_color = ti.Vector.field(3, dtype=ti.f32, shape=self.num_voxels)
@@ -59,6 +58,23 @@ class Simulation:
         self.voxels_pos.from_numpy(points.astype(np.float32))
         self.voxels_color.from_numpy(colors)
 
+    def init_mesh(self, mesh_verts_np: np.ndarray, mesh_faces_np: np.ndarray, mesh_colors_np: np.ndarray, dx: float):
+        if mesh_verts_np is None or len(mesh_verts_np) == 0:
+            self.has_mesh = False
+            return
+
+        print(f"===>Prepared Mesh to show.")
+        self.has_mesh = True
+
+        mesh_verts_grid = mesh_verts_np / dx
+
+        self.v_mesh = ti.Vector.field(3, dtype=ti.f32, shape=len(mesh_verts_grid))
+        self.f_mesh = ti.field(dtype=ti.i32, shape=len(mesh_faces_np.flatten()))
+        self.c_mesh = ti.Vector.field(3, dtype=ti.f32, shape=len(mesh_colors_np))
+
+        self.v_mesh.from_numpy(mesh_verts_grid.astype(np.float32))
+        self.f_mesh.from_numpy(mesh_faces_np.astype(np.int32).flatten())
+        self.c_mesh.from_numpy(mesh_colors_np.astype(np.float32))
 
     @ti.kernel
     def update_planes(self, slice_y: ti.i32, slice_z: ti.i32, pressure_field: ti.template()):
