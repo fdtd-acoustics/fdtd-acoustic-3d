@@ -23,6 +23,8 @@ class Simulation:
         self.plane_c_1 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Nz) # Slice colors horizontal
         self.plane_v_2 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Ny) # Slice pressure vertical
         self.plane_c_2 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Ny) # Slice colors vertical
+        self.plane_v_3 = ti.Vector.field(3, dtype=ti.f32, shape=self.Ny * self.Nz) # Slice pressure vertical
+        self.plane_c_3 = ti.Vector.field(3, dtype=ti.f32, shape=self.Ny * self.Nz) # Slice colors vertical
 
         # --- Voxels ---
         self.voxels_pos = None
@@ -81,7 +83,7 @@ class Simulation:
 
         norm_val = 1.0
 
-        # Horizontal Slice
+        # XZ Slice
         for i, k in ti.ndrange(self.Nx, self.Nz):
             idx_1 = i * self.Nz + k
 
@@ -104,7 +106,7 @@ class Simulation:
                 # ])
             self.plane_c_1[idx_1] = color1
 
-        # Vertical Slice
+        # XY Slice
         for i, j in ti.ndrange(self.Nx, self.Ny):
             idx_2 = i * self.Ny + j
 
@@ -127,3 +129,26 @@ class Simulation:
                 # ])
 
             self.plane_c_2[idx_2] = color2
+
+        # YZ Slice
+        for j, k in ti.ndrange(self.Ny, self.Nz):
+            idx_3 = j * self.Nz + k
+
+            self.plane_v_1[idx_3] = ti.Vector([j, slice_y, k])
+            pres1 = pressure_field[j + self.pml_thick , slice_y + self.pml_thick , k + self.pml_thick ]
+
+            p1_norm = ti.math.clamp(pres1 / norm_val, -1.0, 1.0)
+
+            # Horizontal Slice color mapping
+            color1 = ti.Vector([1.0, 1.0, 1.0])
+            if ti.abs(pres1) > 0.001:
+                if p1_norm > 0:
+                    color1 = ti.Vector([1.0, 1.0 - p1_norm, 1.0 - p1_norm])
+                else:
+                    color1 = ti.Vector([1.0 + p1_norm, 1.0 + p1_norm, 1.0])
+                # color = ti.Vector([
+                #     1.0 - ti.max(0.0, -pres1),
+                #     1.0 - ti.abs(pres1),
+                #     1.0 - ti.max(0.0, pres1)
+                # ])
+            self.plane_c_3[idx_3] = color1

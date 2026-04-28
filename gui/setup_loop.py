@@ -41,6 +41,7 @@ class SetupLoop():
                 simulation=self._sim,
                 plane_geo_1=None,
                 plane_geo_2=None,
+                plane_geo_3=None,
                 render_enabled=True,
                 setup_data=setup_vis,
                 show_voxels=self.show_voxels,

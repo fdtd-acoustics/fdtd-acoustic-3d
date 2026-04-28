@@ -13,7 +13,7 @@ class SceneRenderer:
         self.camera.fov(60)
         self.light_pos = (grid.Nx / 2, grid.Ny - grid.Ny / 5, grid.Nz / 2)
 
-    def render_frame(self, simulation, plane_geo_1, plane_geo_2, render_enabled, setup_data=None, show_voxels=False, show_mesh=False):
+    def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled, setup_data=None, show_voxels=False, show_mesh=False):
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
 
@@ -36,9 +36,10 @@ class SceneRenderer:
                 self.scene.particles(centers=setup_data["mics_pos"], radius=0.6, color=(0, 0.5, 1))
 
             # 2D Slices
-            elif plane_geo_1 is not None and plane_geo_2 is not None:
+            elif plane_geo_1 is not None and plane_geo_2 is not None and plane_geo_3 is not None:
                 self.scene.mesh(simulation.plane_v_1, indices=plane_geo_1.indices, per_vertex_color=simulation.plane_c_1)
                 self.scene.mesh(simulation.plane_v_2, indices=plane_geo_2.indices, per_vertex_color=simulation.plane_c_2)
+                self.scene.mesh(simulation.plane_v_3, indices=plane_geo_3.indices, per_vertex_color=simulation.plane_c_3)
 
             self.canvas.scene(self.scene)
         else:
