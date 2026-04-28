@@ -39,7 +39,7 @@ class RenderLoop:
 
             if self._render_enabled:
                 current_pressure = self._fdtd_sim.get_current_pressure()
-                self._sim.update_planes(slice_y, slice_z, current_pressure)
+                self._sim.update_planes(slice_x, slice_y, slice_z, current_pressure)
 
             self._renderer.render_frame(
                 simulation=self._sim,

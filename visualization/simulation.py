@@ -79,11 +79,34 @@ class Simulation:
         self.c_mesh.from_numpy(mesh_colors_np.astype(np.float32))
 
     @ti.kernel
-    def update_planes(self, slice_y: ti.i32, slice_z: ti.i32, pressure_field: ti.template()):
+    def update_planes(self, slice_x:ti.i32, slice_y: ti.i32, slice_z: ti.i32, pressure_field: ti.template()):
 
         norm_val = 1.0
 
-        # XZ Slice
+        # X Slice
+        for j, k in ti.ndrange(self.Ny, self.Nz):
+            idx_3 = j * self.Nz + k
+
+            self.plane_v_3[idx_3] = ti.Vector([slice_x, j, k])
+            pres1 = pressure_field[slice_x + self.pml_thick, j + self.pml_thick, k + self.pml_thick]
+
+            p1_norm = ti.math.clamp(pres1 / norm_val, -1.0, 1.0)
+
+            # Horizontal Slice color mapping
+            color1 = ti.Vector([1.0, 1.0, 1.0])
+            if ti.abs(pres1) > 0.001:
+                if p1_norm > 0:
+                    color1 = ti.Vector([1.0, 1.0 - p1_norm, 1.0 - p1_norm])
+                else:
+                    color1 = ti.Vector([1.0 + p1_norm, 1.0 + p1_norm, 1.0])
+                # color = ti.Vector([
+                #     1.0 - ti.max(0.0, -pres1),
+                #     1.0 - ti.abs(pres1),
+                #     1.0 - ti.max(0.0, pres1)
+                # ])
+            self.plane_c_3[idx_3] = color1
+
+        # Y Slice
         for i, k in ti.ndrange(self.Nx, self.Nz):
             idx_1 = i * self.Nz + k
 
@@ -106,7 +129,7 @@ class Simulation:
                 # ])
             self.plane_c_1[idx_1] = color1
 
-        # XY Slice
+        # Z Slice
         for i, j in ti.ndrange(self.Nx, self.Ny):
             idx_2 = i * self.Ny + j
 
@@ -129,26 +152,3 @@ class Simulation:
                 # ])
 
             self.plane_c_2[idx_2] = color2
-
-        # YZ Slice
-        for j, k in ti.ndrange(self.Ny, self.Nz):
-            idx_3 = j * self.Nz + k
-
-            self.plane_v_1[idx_3] = ti.Vector([j, slice_y, k])
-            pres1 = pressure_field[j + self.pml_thick , slice_y + self.pml_thick , k + self.pml_thick ]
-
-            p1_norm = ti.math.clamp(pres1 / norm_val, -1.0, 1.0)
-
-            # Horizontal Slice color mapping
-            color1 = ti.Vector([1.0, 1.0, 1.0])
-            if ti.abs(pres1) > 0.001:
-                if p1_norm > 0:
-                    color1 = ti.Vector([1.0, 1.0 - p1_norm, 1.0 - p1_norm])
-                else:
-                    color1 = ti.Vector([1.0 + p1_norm, 1.0 + p1_norm, 1.0])
-                # color = ti.Vector([
-                #     1.0 - ti.max(0.0, -pres1),
-                #     1.0 - ti.abs(pres1),
-                #     1.0 - ti.max(0.0, pres1)
-                # ])
-            self.plane_c_3[idx_3] = color1
