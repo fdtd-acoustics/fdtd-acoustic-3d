@@ -18,31 +18,46 @@ class SceneRenderer:
         self.win_name_x = "Slice X (YZ Plane)"
         self.win_name_y = "Slice Y (XZ Plane)"
         self.win_name_z = "Slice Z (XY Plane)"
-        cv2.namedWindow(self.win_name_x, cv2.WINDOW_NORMAL)
-        cv2.namedWindow(self.win_name_y, cv2.WINDOW_NORMAL)
-        cv2.namedWindow(self.win_name_z, cv2.WINDOW_NORMAL)
 
         scale = 2
         w_x, h_x = grid.Nz * scale, grid.Ny * scale
         w_y, h_y = grid.Nz * scale, grid.Nx * scale
         w_z, h_z = grid.Ny * scale, grid.Nx * scale
-        cv2.resizeWindow(self.win_name_x, w_x, h_x)
-        cv2.resizeWindow(self.win_name_y, w_y, h_y)
-        cv2.resizeWindow(self.win_name_z, w_z, h_z)
 
         spacing = 30
         start_x = 100
-        start_y = config.SCREEN_RESOLUTION[1] + 4*spacing
+        start_y = config.SCREEN_RESOLUTION[1] + 4 * spacing
 
         self.cv_windows = {
             'x': {"name": "Slice X (YZ Plane)", "w": w_x, "h": h_x, "x": start_x, "y": start_y, "active": False},
-            'y': {"name": "Slice Y (XZ Plane)", "w": w_y, "h": h_y, "x": start_x + w_x + spacing, "y": start_y,
-                  "active": False},
-            'z': {"name": "Slice Z (XY Plane)", "w": w_z, "h": h_z, "x": start_x + w_x + w_y + 2 * spacing,
-                  "y": start_y, "active": False}
+            'y': {"name": "Slice Y (XZ Plane)", "w": w_y, "h": h_y, "x": start_x + w_x + spacing, "y": start_y, "active": False},
+            'z': {"name": "Slice Z (XY Plane)", "w": w_z, "h": h_z, "x": start_x + w_x + w_y + 2 * spacing, "y": start_y, "active": False}
         }
 
-    def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled, setup_data=None, show_voxels=False, show_mesh=False):
+    def _manage_cv_window(self, key, should_show, img_tensor):
+        win = self.cv_windows[key]
+
+        if should_show:
+            if not win["active"]:
+                cv2.namedWindow(win["name"], cv2.WINDOW_NORMAL)
+                cv2.resizeWindow(win["name"], win["w"], win["h"])
+                cv2.moveWindow(win["name"], win["x"], win["y"])
+                win["active"] = True
+
+            img = img_tensor.to_numpy()
+            cv2.imshow(win["name"], img[:, :, ::-1])
+        else:
+            if win["active"]:
+                try:
+                    cv2.destroyWindow(win["name"])
+                except Exception:
+                    pass
+                win["active"] = False
+
+    def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled,
+                     setup_data=None, show_voxels=False, show_mesh=False,
+                     show_slice_x=False, show_slice_y=False, show_slice_z=False):
+
         # Main Window
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
