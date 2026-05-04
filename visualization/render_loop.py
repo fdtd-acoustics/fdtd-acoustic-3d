@@ -22,6 +22,10 @@ class RenderLoop:
         self.show_voxels = False
         self.show_mesh = True
 
+        self.show_slice_x = False
+        self.show_slice_y = False
+        self.show_slice_z = False
+
     def run(self) -> None:
         plane_geo_1 = PlaneGeometry(self._grid.Nx, self._grid.Nz)
         plane_geo_2 = PlaneGeometry(self._grid.Nx, self._grid.Ny)
@@ -48,7 +52,10 @@ class RenderLoop:
                 plane_geo_3=plane_geo_3,
                 render_enabled=self._render_enabled,
                 show_voxels=self.show_voxels,
-                show_mesh=self.show_mesh
+                show_mesh=self.show_mesh,
+                show_slice_x = self.show_slice_x,
+                show_slice_y = self.show_slice_y,
+                show_slice_z = self.show_slice_z
             )
 
     def _handle_gui(self,
@@ -57,7 +64,7 @@ class RenderLoop:
                     slice_z: int,
                     ) -> tuple[int, int, int]:
         gui = self._renderer.window.get_gui()
-        with gui.sub_window("2D Slices", 0.05, 0.05, 0.5, 0.35):
+        with gui.sub_window("2D Slices", 0.05, 0.05, 0.6, 0.35):
             gui.text(f"Step: {self._fdtd_sim.get_steps()}")
             gui.text(f"Time: {self._fdtd_sim.get_time():.4f}")
 
@@ -77,5 +84,9 @@ class RenderLoop:
                 self._render_enabled = not self._render_enabled
             self.show_voxels = gui.checkbox("Show Voxels", self.show_voxels)
             self.show_mesh = gui.checkbox("Show Mesh", self.show_mesh)
+
+            self.show_slice_x = gui.checkbox("Show Slice X (YZ Plane)", self.show_slice_x)
+            self.show_slice_y = gui.checkbox("Show Slice Y (XZ Plane)", self.show_slice_y)
+            self.show_slice_z = gui.checkbox("Show Slice Z (XY Plane)", self.show_slice_z)
 
         return slice_x, slice_y, slice_z

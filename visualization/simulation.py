@@ -19,19 +19,24 @@ class Simulation:
         self.pressure_field = ti.field(dtype=ti.f32, shape=(self.Nx, self.Ny, self.Nz))
 
         # Slice 2D
-        self.plane_v_1 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Nz) # Slice pressure horizontal
-        self.plane_c_1 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Nz) # Slice colors horizontal
-        self.plane_v_2 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Ny) # Slice pressure vertical
-        self.plane_c_2 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Ny) # Slice colors vertical
-        self.plane_v_3 = ti.Vector.field(3, dtype=ti.f32, shape=self.Ny * self.Nz) # Slice pressure vertical
-        self.plane_c_3 = ti.Vector.field(3, dtype=ti.f32, shape=self.Ny * self.Nz) # Slice colors vertical
+        self.plane_v_1 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Nz)
+        self.plane_c_1 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Nz)
+        self.plane_v_2 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Ny)
+        self.plane_c_2 = ti.Vector.field(3, dtype=ti.f32, shape=self.Nx * self.Ny)
+        self.plane_v_3 = ti.Vector.field(3, dtype=ti.f32, shape=self.Ny * self.Nz)
+        self.plane_c_3 = ti.Vector.field(3, dtype=ti.f32, shape=self.Ny * self.Nz)
 
-        # --- Voxels ---
+        # Slice 2D images
+        self.image_slice_x = ti.Vector.field(3, dtype=ti.f32, shape=(self.Ny, self.Nz))
+        self.image_slice_y = ti.Vector.field(3, dtype=ti.f32, shape=(self.Nx, self.Nz))
+        self.image_slice_z = ti.Vector.field(3, dtype=ti.f32, shape=(self.Nx, self.Ny))
+
+        # Voxels
         self.voxels_pos = None
         self.voxels_color = None
         self.num_voxels = 0
 
-        # --- Mesh ---
+        # Mesh
         self.v_mesh = None
         self.f_mesh = None
         self.c_mesh = None
@@ -94,17 +99,14 @@ class Simulation:
 
             # Horizontal Slice color mapping
             color1 = ti.Vector([1.0, 1.0, 1.0])
-            if ti.abs(pres1) > 0.001:
+            if ti.abs(pres1) > 0.01:
                 if p1_norm > 0:
                     color1 = ti.Vector([1.0, 1.0 - p1_norm, 1.0 - p1_norm])
                 else:
                     color1 = ti.Vector([1.0 + p1_norm, 1.0 + p1_norm, 1.0])
-                # color = ti.Vector([
-                #     1.0 - ti.max(0.0, -pres1),
-                #     1.0 - ti.abs(pres1),
-                #     1.0 - ti.max(0.0, pres1)
-                # ])
+
             self.plane_c_3[idx_3] = color1
+            self.image_slice_x[j, k] = color1
 
         # Y Slice
         for i, k in ti.ndrange(self.Nx, self.Nz):
@@ -117,17 +119,14 @@ class Simulation:
 
             # Horizontal Slice color mapping
             color1 = ti.Vector([1.0, 1.0, 1.0])
-            if ti.abs(pres1) > 0.001:
+            if ti.abs(pres1) > 0.01:
                 if p1_norm > 0:
                     color1 = ti.Vector([1.0, 1.0 - p1_norm, 1.0 - p1_norm])
                 else:
                     color1 = ti.Vector([1.0 + p1_norm, 1.0 + p1_norm, 1.0])
-                # color = ti.Vector([
-                #     1.0 - ti.max(0.0, -pres1),
-                #     1.0 - ti.abs(pres1),
-                #     1.0 - ti.max(0.0, pres1)
-                # ])
+
             self.plane_c_1[idx_1] = color1
+            self.image_slice_y[i, k] = color1
 
         # Z Slice
         for i, j in ti.ndrange(self.Nx, self.Ny):
@@ -145,10 +144,6 @@ class Simulation:
                     color2 = ti.Vector([1.0, 1.0 - p2_norm, 1.0 - p2_norm])
                 else:
                     color2 = ti.Vector([1.0 + p2_norm, 1.0 + p2_norm, 1.0])
-                # color = ti.Vector([
-                #     1.0 - ti.max(0.0, -pres2),
-                #     1.0 - ti.abs(pres2),
-                #     1.0 - ti.max(0.0, pres2)
-                # ])
 
             self.plane_c_2[idx_2] = color2
+            self.image_slice_z[i, j] = color2

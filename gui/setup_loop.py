@@ -26,6 +26,9 @@ class SetupLoop():
 
         self.show_voxels = False
         self.show_mesh = True
+        self.show_slice_x = False
+        self.show_slice_y = False
+        self.show_slice_z = False
 
     def run(self) -> tuple[list[dict], list[dict]]:
 
@@ -45,7 +48,10 @@ class SetupLoop():
                 render_enabled=True,
                 setup_data=setup_vis,
                 show_voxels=self.show_voxels,
-                show_mesh=self.show_mesh
+                show_mesh=self.show_mesh,
+                show_slice_x = self.show_slice_x,
+                show_slice_y = self.show_slice_y,
+                show_slice_z = self.show_slice_z
             )
 
         return self._sources_to_setup, self._microphones

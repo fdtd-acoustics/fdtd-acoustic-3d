@@ -1,9 +1,10 @@
 import taichi as ti
-
+import cv2
 from . import vis_config as config
 
 class SceneRenderer:
     def __init__(self, grid):
+        # Main Window
         self.window = ti.ui.Window(name="FDTD 3D Slices", res=config.SCREEN_RESOLUTION, fps_limit=config.FPS_LIMIT)
         self.canvas = self.window.get_canvas()
         self.scene = self.window.get_scene()
@@ -13,7 +14,36 @@ class SceneRenderer:
         self.camera.fov(60)
         self.light_pos = (grid.Nx / 2, grid.Ny - grid.Ny / 5, grid.Nz / 2)
 
+        # Slices Windows
+        self.win_name_x = "Slice X (YZ Plane)"
+        self.win_name_y = "Slice Y (XZ Plane)"
+        self.win_name_z = "Slice Z (XY Plane)"
+        cv2.namedWindow(self.win_name_x, cv2.WINDOW_NORMAL)
+        cv2.namedWindow(self.win_name_y, cv2.WINDOW_NORMAL)
+        cv2.namedWindow(self.win_name_z, cv2.WINDOW_NORMAL)
+
+        scale = 2
+        w_x, h_x = grid.Nz * scale, grid.Ny * scale
+        w_y, h_y = grid.Nz * scale, grid.Nx * scale
+        w_z, h_z = grid.Ny * scale, grid.Nx * scale
+        cv2.resizeWindow(self.win_name_x, w_x, h_x)
+        cv2.resizeWindow(self.win_name_y, w_y, h_y)
+        cv2.resizeWindow(self.win_name_z, w_z, h_z)
+
+        spacing = 30
+        start_x = 100
+        start_y = config.SCREEN_RESOLUTION[1] + 4*spacing
+
+        self.cv_windows = {
+            'x': {"name": "Slice X (YZ Plane)", "w": w_x, "h": h_x, "x": start_x, "y": start_y, "active": False},
+            'y': {"name": "Slice Y (XZ Plane)", "w": w_y, "h": h_y, "x": start_x + w_x + spacing, "y": start_y,
+                  "active": False},
+            'z': {"name": "Slice Z (XY Plane)", "w": w_z, "h": h_z, "x": start_x + w_x + w_y + 2 * spacing,
+                  "y": start_y, "active": False}
+        }
+
     def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled, setup_data=None, show_voxels=False, show_mesh=False):
+        # Main Window
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
 
@@ -46,6 +76,19 @@ class SceneRenderer:
             pass
 
         self.window.show()
+
+        # Slice Windows
+        if render_enabled:
+            if hasattr(simulation, 'image_slice_x'):
+                self._manage_cv_window('x', show_slice_x, simulation.image_slice_x)
+
+            if hasattr(simulation, 'image_slice_y'):
+                self._manage_cv_window('y', show_slice_y, simulation.image_slice_y)
+
+            if hasattr(simulation, 'image_slice_z'):
+                self._manage_cv_window('z', show_slice_z, simulation.image_slice_z)
+
+            cv2.waitKey(1)
 
     @property
     def is_running(self):
