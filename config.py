@@ -32,6 +32,7 @@ ROOT_DIR = Path(__file__).parent
 ASSETS_DIR = ROOT_DIR / "assets"
 MODELS_DIR = ASSETS_DIR / "models"   # modele
 AUDIO_DIR  = ASSETS_DIR / "audio"  # pliki audio
+MATERIAL_LIBRARY_DIR = ASSETS_DIR / "material_library"
 
 DATA_DIR = ROOT_DIR / "data"
 VOXELS_DIR = DATA_DIR / "voxels"     # pliki .npz po voxelizacji
