@@ -32,17 +32,24 @@ class Voxelizer:
 
     def get_material_id(self, obj_name: str) -> int:
         obj_name_lower = obj_name.lower()
-        for mat_id, mat in config.MATERIAL_MAP.items():
+        from simulation.simulation_builder import SimulationBuilder
+        material_map = SimulationBuilder.get_material_map_from_csv(config.MAIN_MATERIAL_LIBRARY)
+
+        for mat_id, mat in material_map.items():
             if mat["name"] in obj_name_lower:
                 return mat_id
-        return config.DEFAULT_MATERIAL_ID
+
+        return config.DEFAULT_MATERIAL_ID # TODO trzeba to zamienic
 
     def get_material_name(self, obj_name: str) -> str:
         obj_name_lower = obj_name.lower()
-        for mat in config.MATERIAL_MAP.values():
+        from simulation.simulation_builder import SimulationBuilder
+        material_map = SimulationBuilder.get_material_map_from_csv(config.MAIN_MATERIAL_LIBRARY)
+
+        for mat in material_map.values():
             if mat["name"] in obj_name_lower:
                 return mat["name"]
-        return config.MATERIAL_MAP[config.DEFAULT_MATERIAL_ID]["name"]
+        return config.MATERIAL_MAP[config.DEFAULT_MATERIAL_ID]["name"]  # TODO trzeba to zamienic
 
     def save_to_file(self):
         #save_file_name = config.SCENES_OUT_DIR / Path(self.file_path).with_suffix(".npz").name

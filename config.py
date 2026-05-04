@@ -21,7 +21,7 @@ MATERIAL_MAP: dict[int, dict] = {
     1: {"name": "wall",  "alpha": 0.0, "density": 1.225, "color": [0.5, 0.5, 0.5]},     # previous: alpha:0.5 density:1000.0
     2: {"name": "metal", "alpha": 0.0, "density": 1.225, "color": [0.25, 0.5, 0.7]},    # previous: alpha:0.1 density:500.0
 }
-DEFAULT_MATERIAL_ID = 1
+DEFAULT_MATERIAL_ID = 0
 DEFAULT_ALPHA       = MATERIAL_MAP[0]["alpha"]
 DEFAULT_DENSITY     = MATERIAL_MAP[0]["density"]
 

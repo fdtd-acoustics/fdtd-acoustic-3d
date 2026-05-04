@@ -2,6 +2,7 @@ import numpy as np
 import taichi as ti
 import trimesh
 import config
+from simulation import SimulationBuilder
 
 # Settings
 ti.init(arch=ti.gpu)
@@ -24,9 +25,15 @@ def show_taichi_3d():
 
     # Material Colors
     colors = np.zeros((num_particles, 3), dtype=np.float32)
-    for mat_id, mat_info in config.MATERIAL_MAP.items():
-        if "color" in mat_info:
-            colors[space_matrix[base_mask] == mat_id] = mat_info["color"]
+    material_map = SimulationBuilder.get_material_map_from_csv(config.MAIN_MATERIAL_LIBRARY)
+
+    if material_map:
+        for mat_id, mat_info in material_map.items():
+            if "color" in mat_info:
+                hex_color = mat_info["color"]
+                color_rgb = SimulationBuilder.hex_to_rgb_normalized(hex_color)
+
+                colors[space_matrix[base_mask] == mat_id] = color_rgb
 
     pos_field = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
     color_field = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
