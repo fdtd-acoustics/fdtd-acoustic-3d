@@ -1,0 +1,4 @@
+id,name,alpha,density,color
+0,air,0.0,1.225,#ffffff
+1,wall,0.0,1.225,#d914d9
+2,metal,0.0,1.225,#1bd9d9
