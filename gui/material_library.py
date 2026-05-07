@@ -9,7 +9,7 @@ class MaterialLibraryWindow(tk.Tk):
     def __init__(self, on_close=None):
         super().__init__()
         self.title("Material Library")
-        self.geometry("900x300")
+        self.geometry("900x500")
         self.materials = []
 
         self.on_close = on_close
@@ -56,7 +56,7 @@ class MaterialLibraryWindow(tk.Tk):
         )
 
         columns = ("id","name", "alpha", "density")
-        self.tree = ttk.Treeview(main_frame, columns=columns, show="headings", height=4)
+        self.tree = ttk.Treeview(main_frame, columns=columns, show="headings", height=50)
 
         self.tree.heading("id", text="ID")
         self.tree.column("id", width=40, anchor="center")
@@ -70,12 +70,12 @@ class MaterialLibraryWindow(tk.Tk):
         self.tree.heading("density", text="Density")
         self.tree.column("density", width=80, anchor="center")
 
-        self.tree.pack(fill=tk.X, pady=5)
-
         nav_frame = ttk.Frame(main_frame)
         nav_frame.pack(fill=tk.X, side=tk.BOTTOM, pady = (10,0))
 
         ttk.Button(nav_frame,text = "Back", command=self.on_close).pack(side = tk.LEFT)
+
+        self.tree.pack(fill=tk.X,expand=True, pady=5)
 
 
     def add_material(self):
@@ -124,7 +124,6 @@ class MaterialLibraryWindow(tk.Tk):
             del self.materials[index]
 
         self.save_materials()
-
 
 
     def initialize_data(self):
