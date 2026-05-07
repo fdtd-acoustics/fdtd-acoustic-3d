@@ -4,12 +4,15 @@ import numpy as np
 import taichi as ti
 import trimesh
 
-import config
+from config import MAIN_MATERIAL_LIBRARY
 from fdtd import FDTD_Simulation, SourceManager, ReceiverManager
 from voxelization import Voxelizer
 
 from .grid_params import GridParams
 from .simulation_config import SimulationConfig
+
+import os
+import csv
 
 @ti.kernel
 def _fill_material_kernel(
@@ -100,13 +103,53 @@ class SimulationBuilder:
 
         material_core = ti.Vector.field(2, dtype=ti.f32, shape=(nx, ny, nz))
 
-        ids = sorted(config.MATERIAL_MAP.keys())
-        alphas = np.array([config.MATERIAL_MAP[i]['alpha'] for i in ids], dtype=np.float32)
-        densities = np.array([config.MATERIAL_MAP[i]['density'] for i in ids], dtype=np.float32)
+        material_map = self.get_material_map_from_csv(MAIN_MATERIAL_LIBRARY)
+
+        ids = sorted(material_map.keys())
+        alphas = np.array([material_map[i]['alpha'] for i in ids], dtype=np.float32)
+        densities = np.array([material_map[i]['density'] for i in ids], dtype=np.float32)
 
         _fill_material_kernel(material_core, matrix_3d, alphas, densities)
 
         return material_core
+
+    @staticmethod
+    def get_material_map_from_csv(csv_path):
+        if not os.path.exists(csv_path):
+            print(f"Note: File {csv_path} does not exist.")
+            return
+        materials_map ={}
+
+        with open(csv_path, newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+
+            try:
+                next(reader)
+            except StopIteration:
+                return
+
+            for row in reader:
+                if not row or len(row) < 4:
+                    continue
+
+                try:
+                    m_id = int(row[0])
+                    materials_map[m_id] = {
+                        'name': str(row[1]),
+                        'alpha': float(row[2]),
+                        'density': float(row[3]),
+                        'color': str(row[4])
+                    }
+                except ValueError as e:
+                    print(f"Error skipping row {row}: {e}")
+                    continue
+
+        return materials_map
+
+    @staticmethod
+    def hex_to_rgb_normalized(hex_color):
+        hex_color = hex_color.lstrip('#')
+        return [int(hex_color[i:i + 2], 16) / 255.0 for i in (0, 2, 4)]
 
 
     def _load_obj_dimensions(self):

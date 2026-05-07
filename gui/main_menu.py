@@ -1,10 +1,12 @@
 import tkinter as tk
 
 from fdtd import SourceManager, ReceiverManager, FDTD_Simulation
-from gui import NewSimulationWindow
+from .new_simulation_menu import NewSimulationWindow
+from .material_library import MaterialLibraryWindow
 from simulation import SimulationConfig, SimulationBuilder
 from visualization import SceneRenderer, Simulation
 from visualization.render_loop import RenderLoop
+from .material_library import MaterialLibraryWindow
 from .setup_loop import SetupLoop
 from tkinter import messagebox, filedialog, Grid
 import config
@@ -94,7 +96,16 @@ class MainMenuWindow(tk.Tk):
             initial_receivers = loaded_data.get('receivers')
         else:
             grid = builder.compute_grid(cfg['sources'])
-            builder.voxelize(grid)
+            try:
+                builder.voxelize(grid)
+            except ValueError as e:
+                from tkinter import messagebox
+                error_message = str(e)
+                messagebox.showerror(
+                    title="Voxelization Error",
+                    message=error_message
+                )
+                return False
 
             data = np.load(sim_config.npz_filepath)
             space_matrix = data['material_core']
@@ -154,8 +165,10 @@ class MainMenuWindow(tk.Tk):
             return None
 
     def open_materials(self):
-        #TODO
-        pass
+        self.withdraw()
+        library_material_windows = MaterialLibraryWindow(on_close=lambda: self.on_close_subwindow(library_material_windows))
+        library_material_windows.protocol("WM_DELETE_WINDOW", lambda: self.on_close_subwindow(library_material_windows))
+
 
     def show_post_setup_dialog(self, sim_config,grid, sources, receivers):
         dialog = tk.Toplevel(self)
