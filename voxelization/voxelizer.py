@@ -35,21 +35,51 @@ class Voxelizer:
         from simulation.simulation_builder import SimulationBuilder
         material_map = SimulationBuilder.get_material_map_from_csv(config.MAIN_MATERIAL_LIBRARY)
 
+        if not material_map:
+            raise RuntimeError("Material library is empty or could not be loaded. Check your CSV file.")
+
         for mat_id, mat in material_map.items():
             if mat["name"] in obj_name_lower:
                 return mat_id
 
-        return config.DEFAULT_MATERIAL_ID # TODO trzeba to zamienic
+        raise ValueError(
+            f"\n[Material Mapping Error]\n"
+            f"Object name '{obj_name}' does not contain any known material name.\n"
+        )
 
     def get_material_name(self, obj_name: str) -> str:
         obj_name_lower = obj_name.lower()
         from simulation.simulation_builder import SimulationBuilder
         material_map = SimulationBuilder.get_material_map_from_csv(config.MAIN_MATERIAL_LIBRARY)
 
+        if not material_map:
+            raise RuntimeError("Material library is empty or could not be loaded. Check your CSV file.")
+
         for mat in material_map.values():
             if mat["name"] in obj_name_lower:
                 return mat["name"]
-        return config.MATERIAL_MAP[config.DEFAULT_MATERIAL_ID]["name"]  # TODO trzeba to zamienic
+
+        raise ValueError(
+            f"\n[Material Mapping Error]\n"
+            f"Object name '{obj_name}' does not contain any known material name.\n"
+        )
+
+    def get_material_color(self, obj_name: str) -> str:
+        obj_name_lower = obj_name.lower()
+        from simulation.simulation_builder import SimulationBuilder
+        material_map = SimulationBuilder.get_material_map_from_csv(config.MAIN_MATERIAL_LIBRARY)
+
+        if not material_map:
+            raise RuntimeError("Material library is empty or could not be loaded. Check your CSV file.")
+
+        for mat in material_map.values():
+            if mat["name"] in obj_name_lower:
+                return mat["color"]
+
+        raise ValueError(
+            f"\n[Material Mapping Error]\n"
+            f"Object name '{obj_name}' does not contain any known material name.\n"
+        )
 
     def save_to_file(self):
         #save_file_name = config.SCENES_OUT_DIR / Path(self.file_path).with_suffix(".npz").name
@@ -152,10 +182,11 @@ class Voxelizer:
             offset_vector = self.grid_center * self.DX
             aligned_verts = shifted_verts + offset_vector
 
+            from simulation.simulation_builder import SimulationBuilder
             # Mesh Colors for materials
-            material_id = self.get_material_id(geom_name)
-            color = config.MATERIAL_MAP.get(material_id, config.MATERIAL_MAP[config.DEFAULT_MATERIAL_ID])["color"]
-            vert_colors = np.tile(color, (len(aligned_verts), 1))
+            hex_color = self.get_material_color(geom_name)
+            rgb_color = SimulationBuilder.hex_to_rgb_normalized(hex_color)
+            vert_colors = np.tile(rgb_color, (len(aligned_verts), 1))
 
             self.mesh_vertices.append(aligned_verts)
             self.mesh_faces.append(faces + self.vertex_offset)

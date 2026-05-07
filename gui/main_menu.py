@@ -96,7 +96,16 @@ class MainMenuWindow(tk.Tk):
             initial_receivers = loaded_data.get('receivers')
         else:
             grid = builder.compute_grid(cfg['sources'])
-            builder.voxelize(grid)
+            try:
+                builder.voxelize(grid)
+            except ValueError as e:
+                from tkinter import messagebox
+                error_message = str(e)
+                messagebox.showerror(
+                    title="Voxelization Error",
+                    message=error_message
+                )
+                return False
 
             data = np.load(sim_config.npz_filepath)
             space_matrix = data['material_core']

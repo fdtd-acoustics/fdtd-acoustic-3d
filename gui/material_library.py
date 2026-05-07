@@ -1,16 +1,8 @@
-from dataclasses import dataclass
 import csv
 import tkinter as tk
 from tkinter import ttk, messagebox, colorchooser
 import os
 import config
-
-@dataclass
-class Record:
-    id: int
-    name: str
-    alpha: float
-    density: float
 
 
 class MaterialLibraryWindow(tk.Tk):
@@ -205,7 +197,6 @@ class MaterialLibraryWindow(tk.Tk):
 
         if color_code[1]:
             self.color_preview.config(bg=color_code[1])
-            self.current_color_hex = color_code[1]
 
 
     def create_color_icon(self, hex_color, size=(16, 16)):
