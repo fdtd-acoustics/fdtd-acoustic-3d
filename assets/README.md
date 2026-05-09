@@ -1,3 +1,4 @@
+# Instrukcja Blender
 ## Tworzenie pomieszczenia z zwykłego obiektu Cube w Blenderze
 1. Ustaw wymiary Cube do wymiarów pomieszczenia do testowania
 2. Zatwierdź zmiany skali **CTRL+A** (żeby wszędzie była skala 1.0)
