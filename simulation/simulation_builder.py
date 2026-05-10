@@ -187,7 +187,7 @@ class SimulationBuilder:
         print(f"  Nx={grid.Nx}  Ny={grid.Ny}  Nz={grid.Nz}")
 
     @staticmethod
-    def save_full_configuration(self, path, grid, sim_config, sources, receivers):
+    def save_full_configuration(path, grid, sim_config, sources, receivers):
         try:
             base_npz_path = sim_config.npz_filepath
             with np.load(base_npz_path, allow_pickle=True) as data:
