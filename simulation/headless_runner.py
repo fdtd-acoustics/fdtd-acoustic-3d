@@ -51,11 +51,11 @@ class HeadlessRunner:
 
     @classmethod
     def from_npz(cls, path: str | Path, overrides: dict | None = None) -> "HeadlessRunner":
-        path = Path(path)
-        cfg = _npz_to_cfg(path)
-        if overrides:
-            cfg = _apply_overrides(cfg, overrides)
-        return cls(cfg, npz_path=path)
+        # path = Path(path)
+        # cfg = _npz_to_cfg(path)
+        # if overrides:
+        #     cfg = _apply_overrides(cfg, overrides)
+        return cls({})  # todo
 
     def run(
         self,

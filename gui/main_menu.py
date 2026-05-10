@@ -126,6 +126,8 @@ class MainMenuWindow(tk.Tk):
 
         sources, receivers = SetupLoop(renderer, grid,sim ,initial_sources, initial_receivers).run() # ustawianie zrodel i mikrofonow
 
+        self._print_placements_for_headless(sources,receivers, grid)
+
         action = self.show_post_setup_dialog(sim_config,grid, sources, receivers)  # mozliwosc zapisu konfiguracji do .npz
 
         if action == "start":
