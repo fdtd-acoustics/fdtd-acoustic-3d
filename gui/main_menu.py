@@ -198,7 +198,7 @@ class MainMenuWindow(tk.Tk):
             )
             if path:
                 try:
-                    self.save_full_configuration(path, grid, sim_config, sources, receivers)
+                    SimulationBuilder.save_full_configuration(path, grid, sim_config, sources, receivers)
                     filename = path.split('/')[-1]
                     status_label.config(text=f"Saved: {filename}", fg="#28a745")
                     dialog.update_idletasks()
