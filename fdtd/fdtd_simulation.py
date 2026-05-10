@@ -81,9 +81,9 @@ class FDTD_Simulation:
             density_val = config.DEFAULT_DENSITY
             beta_val = 0.0
 
-            if (i >= self.pml_thick and i < self.Nx - self.pml_thick and
-                    j >= self.pml_thick and j < self.Ny - self.pml_thick and
-                    k >= self.pml_thick and k < self.Nz - self.pml_thick):
+            if (self.pml_thick <= i < self.Nx - self.pml_thick and
+                    self.pml_thick <= j < self.Ny - self.pml_thick and
+                    self.pml_thick <= k < self.Nz - self.pml_thick):
 
                 ii = i - self.pml_thick
                 jj = j - self.pml_thick

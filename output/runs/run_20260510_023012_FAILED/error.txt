@@ -1,0 +1,8 @@
+failed_at: 2026-05-10T00:30:12Z
+exception: AttributeError: 'HeadlessRunner' object has no attribute 'npz'
+
+Traceback (most recent call last):
+  File "/Users/maciejblawat/Documents/projects/FDTD_simulation/simulation/headless_runner.py", line 87, in run
+    if self.npz.filepath.is_file():
+       ^^^^^^^^
+AttributeError: 'HeadlessRunner' object has no attribute 'npz'

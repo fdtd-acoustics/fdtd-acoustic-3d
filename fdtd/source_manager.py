@@ -1,8 +1,7 @@
-import math
 import taichi as ti
-from scipy.io import wavfile
 import numpy as np
-from scipy.interpolate import interp1d
+
+from . import waveform_factory
 
 
 @ti.data_oriented
@@ -38,7 +37,6 @@ class SourceManager:
         else:
             print(f"Error: Tried to add source '{name}' but reached max_sources limit")
 
-
     def set_pos(self, idx, x, y, z):
         if 0 <= idx < self.count[None]:
             self.pos[idx] = [int(x), int(y), int(z)]
@@ -60,7 +58,7 @@ class SourceManager:
 
         manager = cls(max_sources=len(sources), max_steps=max_steps)
         for idx, source in enumerate(sources):
-            waveform = cls._calculate_waveform(source, dt, max_steps)
+            waveform = waveform_factory.synthesize(source, dt, max_steps)
             waveform = np.ascontiguousarray(waveform, dtype=np.float32)
 
             x, y, z = source.get('coords')
@@ -80,79 +78,7 @@ class SourceManager:
 
         return manager
 
-    @staticmethod
-    def _calculate_waveform(source: dict, dt: float, max_steps: int) -> np.ndarray:
-        waveform = np.zeros(max_steps, dtype=np.float32)
-        t = np.arange(max_steps) * dt
-
-        vol = float(source.get('vol', 1.0))
-
-        if source['type'] == 'Gauss':
-            freq = source.get('freq')
-            amp = source.get('amp')
-            sigma = np.sqrt(2 * np.log(2)) / (2 * np.pi * freq)
-            delay = 4 * sigma
-            waveform = amp * np.exp(-((t - delay)**2) / (2 * sigma**2))
-
-        elif source['type'] == 'Custom':
-            filepath = source['filepath']
-            sample_rate, data = wavfile.read(filepath)
-            if len(data.shape) > 1:
-                data = data[:, 0]
-
-            data = data.astype(np.float32) / (np.max(np.abs(data)) + 1e-9) # normalizacja
-
-            duration = len(data) / sample_rate   # trzeba dopasowac do dt
-            old_t = np.linspace(0, duration, len(data))
-
-            interpolator = interp1d(old_t, data, kind='linear', bounds_error=False, fill_value=0.0)
-
-            waveform = interpolator(t).astype(np.float32)
-
-        return vol * waveform
-
-
-
     @classmethod
     def get_highest_frequency(cls, sources: list[dict]) -> float:
-        max_freq = 0.0
-        for source in sources:
-            current_freq = 0.0
-
-            if source['type'] == 'Gauss':
-                current_freq = float(source.get('freq', 0.0))
-
-            elif source['type'] == 'Custom':
-                file_path = source.get('filepath')
-                if file_path:
-                    current_freq = cls._analyze_wav_freq_max(file_path, threshold=0.01) # narazie tak na sztywno
-
-            if current_freq > max_freq:
-                max_freq = current_freq
-
-        return max_freq
-
-
-    @classmethod
-    def _analyze_wav_freq_max(cls, file_path, threshold: float) -> float:
-        try:
-            sample_rate, data = wavfile.read(file_path)
-            if len(data.shape) > 1:
-                data = data[:, 0]
-
-            n = len(data) # ilosc próbek
-
-            fft_values = np.abs(np.fft.rfft(data)) # to wartosci liniowe(nie decybele)
-            freqs = np.fft.rfftfreq(n, d=1 / sample_rate)
-
-            limit = threshold * np.max(fft_values) # pozbywamy sie najcichszych dzwiekow(slabo slyszalne a moze sie tam trafic wysoka czestotliowsc)
-            # wysoka czestotliowsc moze doprowadzic do strasznie malego dx
-            significant_freqs = freqs[fft_values > limit] # tablica czestotliowsci
-
-            if len(significant_freqs) > 0:
-                return float(significant_freqs[-1]) # zwraca najwyzsza czestotliowsc
-            return 0.0
-        except Exception as e:
-            print(f"File parsing error {file_path}: {e}")
-            return 0.0
+        return max((waveform_factory.get_max_frequency(s) for s in sources), default=0.0)
 

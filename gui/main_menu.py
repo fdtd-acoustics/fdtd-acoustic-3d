@@ -2,7 +2,7 @@ import tkinter as tk
 
 from fdtd import SourceManager, ReceiverManager, FDTD_Simulation
 from gui import NewSimulationWindow
-from simulation import SimulationConfig, SimulationBuilder
+from simulation import SimulationConfig, SimulationBuilder, GridParams
 from visualization import SceneRenderer, Simulation
 from visualization.render_loop import RenderLoop
 from .setup_loop import SetupLoop
@@ -47,7 +47,8 @@ class MainMenuWindow(tk.Tk):
         )
         self.exit_btn.pack(side=tk.RIGHT)
 
-    def show_info(self):
+    @staticmethod
+    def show_info():
         messagebox.showinfo(
             "Information",
             "Version 1.0".center(50)
@@ -114,6 +115,8 @@ class MainMenuWindow(tk.Tk):
 
         sources, receivers = SetupLoop(renderer, grid,sim ,initial_sources, initial_receivers).run() # ustawianie zrodel i mikrofonow
 
+        self._print_placements_for_headless(sources, receivers, grid)
+
         action = self.show_post_setup_dialog(sim_config,grid, sources, receivers)  # mozliwosc zapisu konfiguracji do .npz
 
         if action == "start":
@@ -156,6 +159,37 @@ class MainMenuWindow(tk.Tk):
     def open_materials(self):
         #TODO
         pass
+
+    @staticmethod
+    def _print_placements_for_headless(sources, receivers, grid: GridParams) -> None:
+        grid_center = (np.array([grid.Nx, grid.Ny, grid.Nz]) - 1.0) / 2.0
+
+        def voxel_to_world(vx, vy, vz):
+            v = np.array([vx, vy, vz], dtype=np.float64)
+            world = (v - grid_center) * grid.dx
+            return float(world[0]), float(world[1]), float(world[2])
+
+        print()
+        print("=" * 64)
+        print("PLACEMENTS (paste into YAML config)\n")
+        print(f"# grid: dx={grid.dx:.6f} m, N_inner=({grid.Nx}, {grid.Ny}, {grid.Nz})")
+        print()
+        print("sources:")
+        for src in sources:
+            cx, cy, cz = src.get("coords", (0, 0, 0))
+            wx, wy, wz = voxel_to_world(cx, cy, cz)
+            wave = {k: v for k, v in src.items() if k not in ("coords", "name")}
+            print(f"  - position: [{wx:.4f}, {wy:.4f}, {wz:.4f}]  # voxel: [{cx}, {cy}, {cz}]")
+            print(f"    waveform: {wave}")
+        print()
+        print("receivers:")
+        for rec in receivers:
+            cx, cy, cz = rec.get("x", 0), rec.get("y", 0), rec.get("z", 0)
+            wx, wy, wz = voxel_to_world(cx, cy, cz)
+            print(f"  - name: {rec.get('name', 'mic')}")
+            print(f"    position: [{wx:.4f}, {wy:.4f}, {wz:.4f}]  # voxel: [{cx}, {cy}, {cz}]")
+        print("=" * 64)
+        print()
 
     def show_post_setup_dialog(self, sim_config,grid, sources, receivers):
         dialog = tk.Toplevel(self)

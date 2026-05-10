@@ -1,6 +1,8 @@
 taichi>=1.7.0
-trimesh>=4.11.5
+trimesh>=4.12.2
 scipy>=1.17.1
 numpy>=2.4.4
 matplotlib>=3.8.0
 Pillow
+pyyaml>=6.0
+tqdm>=4.66
