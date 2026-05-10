@@ -1,8 +1,7 @@
 import config
 import numpy as np
 import taichi as ti
-
-from simulation import GridParams
+from simulation import GridParams, SimulationBuilder
 
 
 @ti.data_oriented
@@ -50,9 +49,14 @@ class Simulation:
         points = indices
 
         colors = np.zeros((self.num_voxels, 3), dtype=np.float32)
-        for mat_id, mat_info in config.MATERIAL_MAP.items():
-            if "color" in mat_info:
-                colors[space_matrix[base_mask] == mat_id] = mat_info["color"]
+
+        material_map = SimulationBuilder.get_material_map_from_csv(config.MAIN_MATERIAL_LIBRARY)
+
+        if material_map:
+            for mat_id, mat_info in material_map.items():
+                if "color" in mat_info:
+                    rgb_normalized = SimulationBuilder.hex_to_rgb_normalized(mat_info["color"])
+                    colors[space_matrix[base_mask] == mat_id] = rgb_normalized
 
         self.voxels_pos = ti.Vector.field(3, dtype=ti.f32, shape=self.num_voxels)
         self.voxels_color = ti.Vector.field(3, dtype=ti.f32, shape=self.num_voxels)
