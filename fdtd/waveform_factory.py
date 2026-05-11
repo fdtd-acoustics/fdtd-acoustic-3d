@@ -60,6 +60,8 @@ def _load_wav(spec: dict, dt: float, total_steps: int) -> np.ndarray:
 
     waveform = interpolator(t).astype(np.float32)
 
+    waveform -= np.mean(waveform)
+
     return (waveform * vol).astype(np.float32)
 
 def _analyze_wav_max_freq(path: str, threshold: float = 0.01) -> float:
