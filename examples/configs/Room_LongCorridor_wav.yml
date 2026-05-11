@@ -1,0 +1,26 @@
+# Headless mirror of GUI run on Room_LongCorridor.obj
+
+scene:
+  obj_file: ../../assets/models/Room_LongCorridor.obj
+  pml_thickness: 20
+  alpha_max: 0.15
+  record_time: 10.0
+
+physics:
+  sound_speed: 343.0
+  nodes_per_wavelength: 10
+  safety_factor: 0.95
+
+sources:
+  - position: [-0.1544, -0.6517, 4.7849]
+    time: 8.0
+    waveform:
+      type: Custom
+      filepath: ../../assets/audio/grecki_4k_10s.wav
+
+receivers:
+  - name: mic_1
+    position: [0.0343, -0.4116, -6.8257]
+
+run:
+  save_plots: true

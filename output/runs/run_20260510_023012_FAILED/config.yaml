@@ -1,0 +1,28 @@
+scene:
+  obj_file: /Users/maciejblawat/Documents/projects/FDTD_simulation/assets/models/simpleLshapeRoom3.obj
+  pml_thickness: 20
+  alpha_max: 0.15
+  record_time: 0.1
+physics:
+  sound_speed: 343.0
+  nodes_per_wavelength: 10
+  safety_factor: 0.95
+sources:
+- position:
+  - -2.1352
+  - -0.6517
+  - -1.1405
+  waveform:
+    type: Gauss
+    freq: 2000.0
+    amp: 1000.0
+    vol: 1.0
+receivers:
+- name: mic_1
+  position:
+  - 2.9241
+  - -0.9604
+  - 1.7236
+run:
+  output: output/runs/
+  save_plots: true

@@ -1,0 +1,26 @@
+# Headless mirror of GUI run on Room_GoldenRatio.obj
+
+scene:
+  obj_file: ../../assets/models/Room_GoldenRatio.obj
+  pml_thickness: 20
+  alpha_max: 0.15
+  record_time: 10.0
+
+physics:
+  sound_speed: 343.0
+  nodes_per_wavelength: 10
+  safety_factor: 0.95
+
+sources:
+  - position: [-0.0772, -0.4151, -3.0410]
+    time: 8.0
+    waveform:
+      type: Custom
+      filepath: ../../assets/audio/grecki_4k_10s.wav
+
+receivers:
+  - name: mic_1
+    position: [-0.5213, -0.4730, 2.9058]
+
+run:
+  save_plots: true
