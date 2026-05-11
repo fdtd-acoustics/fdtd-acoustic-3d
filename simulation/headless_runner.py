@@ -191,7 +191,13 @@ class HeadlessRunner:
     ) -> SourceManager:
         manager = SourceManager(max_sources=len(sources), max_steps=total_steps)
         for idx, src in enumerate(sources):
-            waveform_array = waveform_factory.synthesize(src["waveform"], dt, total_steps)
+            emit_steps = min(int(math.ceil(src["time"] / dt)), total_steps)
+            waveform_array = waveform_factory.synthesize(src["waveform"], dt, emit_steps)
+            if emit_steps < total_steps:
+                waveform_array = np.concatenate([
+                    waveform_array,
+                    np.zeros(total_steps - emit_steps, dtype=np.float32),
+                ])
             waveform_array = np.ascontiguousarray(waveform_array, dtype=np.float32)
             x, y, z = _world_to_voxel(src["position"], grid_inner, dx)
             manager.add_source(

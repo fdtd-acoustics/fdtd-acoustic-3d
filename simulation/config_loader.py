@@ -32,7 +32,7 @@ def validate_config(raw: dict, base_dir: Path | None = None) -> dict:
 
     scene = _validate_scene(raw.get("scene", {}), base_dir)
     physics = _validate_physics(raw.get("physics", {}))
-    sources = _validate_sources(raw.get("sources", []), base_dir)
+    sources = _validate_sources(raw.get("sources", []), base_dir, scene["record_time"])
     receivers = _validate_receivers(raw.get("receivers", []))
     run = _validate_run(raw.get("run", {}))
 
@@ -95,7 +95,7 @@ def _validate_physics(raw: dict) -> dict:
     }
 
 
-def _validate_sources(raw: list, base_dir: Path) -> list[dict]:
+def _validate_sources(raw: list, base_dir: Path, record_time: float) -> list[dict]:
     if not isinstance(raw, list):
         raise ConfigError("sources must be a list")
     out = []
@@ -104,7 +104,14 @@ def _validate_sources(raw: list, base_dir: Path) -> list[dict]:
             raise ConfigError(f"sources[{i}] must be a mapping")
         position = _validate_position(src.get("position"), f"sources[{i}].position")
         waveform = _validate_waveform(src.get("waveform"), base_dir, f"sources[{i}].waveform")
-        out.append({"position": position, "waveform": waveform})
+        emit_time = float(src.get("time", record_time))
+        if emit_time <= 0:
+            raise ConfigError(f"sources[{i}].time must be > 0")
+        if emit_time > record_time:
+            raise ConfigError(
+                f"sources[{i}].time ({emit_time}s) exceeds scene.record_time ({record_time}s)"
+            )
+        out.append({"position": position, "waveform": waveform, "time": emit_time})
     return out
 
 

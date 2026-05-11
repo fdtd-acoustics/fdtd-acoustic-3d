@@ -4,7 +4,7 @@ scene:
   obj_file: ../../assets/models/Room_LongCorridor.obj
   pml_thickness: 20
   alpha_max: 0.15
-  record_time: 0.3
+  record_time: 10.0
 
 physics:
   sound_speed: 343.0
@@ -13,12 +13,10 @@ physics:
 
 sources:
   - position: [-0.1544, -0.6517, 4.7849]
-    time: 0.1
+    time: 8.0
     waveform:
-      type: Gauss
-      freq: 2000.0
-      amp: 1000.0
-      vol: 1.0
+      type: Custom
+      filepath: ../../assets/audio/grecki_4k_10s.wav
 
 receivers:
   - name: mic_1
