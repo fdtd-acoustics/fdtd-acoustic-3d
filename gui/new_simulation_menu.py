@@ -106,7 +106,7 @@ class NewSimulationWindow(tk.Toplevel):
         # grid columns 2-3: Type
         ttk.Label(input_frame, text="Type:").grid(row=0, column=2, sticky="w", padx=2)
         self.combo_type = ttk.Combobox(
-            input_frame, values=["Gauss", "Custom"], state="readonly", width=10
+            input_frame, values=["Gauss", "Custom", "ContinuousTone"], state="readonly", width=10
         )
         self.combo_type.current(0)
         self.combo_type.grid(row=0, column=3, padx=5, pady=2)
@@ -236,13 +236,13 @@ class NewSimulationWindow(tk.Toplevel):
             sim_time = float(self.entry_time.get())
             sim_vol = float(self.entry_vol.get())
 
-            if s_type == "Gauss":
+            if s_type in ["Gauss", "ContinuousTone"]:
                 amp = float(self.entry_amp.get())
                 freq = float(self.entry_freq.get())
-                details = f"Amp: {amp}, Freq: {freq} Hz"
+                details = f"Type: {s_type}, Amp: {amp}, Freq: {freq} Hz"
                 source_info: dict = {
                     "name": source_name,
-                    "type": "Gauss",
+                    "type": s_type,
                     "amp": amp,
                     "freq": freq,
                     "time": sim_time,
@@ -406,7 +406,7 @@ class NewSimulationWindow(tk.Toplevel):
                     self.tree.delete(item)
 
                 for src in self.sources_data:
-                    if src['type'] == "Gauss":
+                    if src['type'] == ["Gauss", "ContinuousTone"]:
                         details = f"Amp: {src['amp']}, Freq: {src['freq']} Hz"
                     else:
                         import os

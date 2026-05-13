@@ -26,6 +26,8 @@ def get_max_frequency(spec: dict) -> float:
         return float(spec.get('freq', 0.0))
     if w_type == 'Custom':
         return _analyze_wav_max_freq(spec.get('filepath'))
+    if w_type == 'ContinuousTone':
+        return float(spec.get('freq', 0.0))
     return 0.0
 
 def _generate_gauss(spec: dict, dt: float, total_steps: int) -> np.ndarray:
@@ -38,6 +40,18 @@ def _generate_gauss(spec: dict, dt: float, total_steps: int) -> np.ndarray:
     delay = 4 * sigma
     waveform = amp * np.exp(-((t - delay) ** 2) / (2 * sigma ** 2))
     return (waveform * vol).astype(np.float32)
+
+def _generate_continuous_tone(spec: dict, dt: float, total_steps: int) -> np.ndarray:
+    freq = float(spec['freq'])
+    amp = float(spec.get('amp', 1.0))
+    vol = float(spec.get('vol', 1.0))
+    t = np.arange(total_steps) * dt
+
+    waveform = amp * np.sin(2 * np.pi * freq * t)
+
+    return (waveform * vol).astype(np.float32)
+
+
 
 def _load_wav(spec: dict, dt: float, total_steps: int) -> np.ndarray:
     path = Path(spec.get('filepath', spec.get('path', '')))
@@ -81,4 +95,5 @@ def _analyze_wav_max_freq(path: str, threshold: float = 0.01) -> float:
 _HANDLERS = {
     "Gauss": _generate_gauss,
     "Custom": _load_wav,
+    "ContinuousTone": _generate_continuous_tone,
 }
