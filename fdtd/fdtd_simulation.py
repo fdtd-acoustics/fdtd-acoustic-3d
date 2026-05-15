@@ -41,6 +41,8 @@ class FDTD_Simulation:
         self.buffers = [self._p_prev, self._p_curr]
 
         self._prepare_simulation_data(material_core)
+        for i in range(0, 50):
+            print(f"{self._k_field[i, 50, 50]}")
 
     @ti.func
     def _calculate_alpha_A(self, sound_speed: ti.f32, alpha: ti.f32, density: ti.f32) -> ti.f32:
@@ -53,9 +55,9 @@ class FDTD_Simulation:
     @ti.func
     def _beta_from_alpha(self, alpha: ti.f32) -> ti.f32:
         Beta = 0.0
-        if alpha >= 1.0:  # otwarta przestrzeń
+        if alpha >= 1.0:
             Beta = 1.0
-        elif alpha <= 0.0:  # idealna ściana
+        elif alpha <= 0.0:
             Beta = 0.0
         else:
             R = ti.sqrt(1.0 - alpha)
@@ -63,19 +65,42 @@ class FDTD_Simulation:
 
         return Beta
 
+    @ti.func
+    def is_air(self, i, j, k, material_core: ti.template()) -> ti.i32:
+        air_flag = 1
+
+        if (self.pml_thick <= i < self.Nx - self.pml_thick and
+                self.pml_thick <= j < self.Ny - self.pml_thick and
+                self.pml_thick <= k < self.Nz - self.pml_thick):
+            ii = i - self.pml_thick
+            jj = j - self.pml_thick
+            kk = k - self.pml_thick
+
+            alpha_val = material_core[ii, jj, kk][0]
+
+            if alpha_val != 0.0:
+                air_flag = 0
+            else:
+                air_flag = 1
+
+        return air_flag
 
     @ti.kernel
     def _prepare_simulation_data(self, material_core: ti.template()):
         for i, j, k in ti.ndrange(self.Nx, self.Ny, self.Nz):
             # ile sasiadow posiada punkt
             count = 0
-            if i > 1: count += 1
-            if i < self.Nx - 2: count += 1
-            if j > 1: count += 1
-            if j < self.Ny - 2: count += 1
-            if k > 1: count += 1
-            if k < self.Nz - 2: count += 1
-            self._k_field[i, j, k] = count
+
+            if self.is_air(i, j, k, material_core):
+                if i + 1 < self.Nx: count += self.is_air(i + 1, j, k, material_core)
+                if i - 1 >= 0:      count += self.is_air(i - 1, j, k, material_core)
+
+                if j + 1 < self.Ny: count += self.is_air(i, j + 1, k, material_core)
+                if j - 1 >= 0:      count += self.is_air(i, j - 1, k, material_core)
+
+                if k + 1 < self.Nz: count += self.is_air(i, j, k + 1, material_core)
+                if k - 1 >= 0:      count += self.is_air(i, j, k - 1, material_core)
+
 
             alpha_val = config.DEFAULT_ALPHA
             density_val = config.DEFAULT_DENSITY
@@ -120,14 +145,16 @@ class FDTD_Simulation:
 
                 dist_final = ti.max(dist_x, dist_y, dist_z)
                 if dist_final > 0.0:
-                    alpha_val = self.alpha_max * (dist_final ** 3)
+                    alpha_val = self.alpha_max * (dist_final**2)
                     self._alpha_A[i, j, k] = self._calculate_alpha_A(self.sound_speed, alpha_val, density_val)  # gestosc powietrza
                     self._alpha_B[i, j, k] = self._calculate_alpha_B(self.sound_speed, alpha_val)
 
                 beta_val = 0
 
-            k_val = self._k_field[i, j, k]
-            self._bk_field[i, j, k] = (6.0 - ti.cast(k_val, ti.f32)) * self.courant * beta_val
+            self._k_field[i,j,k] = count
+
+            self._bk_field[i, j, k] = (6 - count) * self.courant * beta_val * 0.5
+
 
             # brzegi maja zawsze cisnienie 0
             if i == 0 or i == self.Nx - 1 or j == 0 or j == self.Ny - 1 or k == 0 or k == self.Nz - 1:
@@ -138,20 +165,30 @@ class FDTD_Simulation:
 
 
 
+
+
     @ti.kernel
     def _step(self, p_prev: ti.template(), p_curr: ti.template(), steps: ti.i32):
         for i, j, k in ti.ndrange((1, self.Nx - 1), (1, self.Ny - 1),(1, self.Nz - 1)):
             k_val = self._k_field[i, j, k]
-            bk_val = self._bk_field[i, j, k]
-            alpha_a = self._alpha_A[i, j, k]
-            alpha_b = self._alpha_B[i, j, k]
+            if k_val > 0:
+                bk_val = self._bk_field[i, j, k]
+                alpha_a = self._alpha_A[i, j, k]
+                alpha_b = self._alpha_B[i, j, k]
 
-            w1 = 1.0 + bk_val + alpha_a / 2 * self.dt + alpha_b * (self.dt ** 2)
-            w2 = self.courant_sq * (p_curr[i + 1, j, k] + p_curr[i - 1, j, k] + p_curr[i, j + 1, k] + p_curr[i, j - 1, k] + p_curr[i, j, k + 1] + p_curr[i, j, k - 1])
-            w3 = (2.0 - k_val * self.courant_sq) * p_curr[i, j, k]
-            w4 = (bk_val - 1.0 + (alpha_a / 2.0) * self.dt) * p_prev[i, j, k]
+                w1 = 1.0 + bk_val + alpha_a / 2 * self.dt + alpha_b * (self.dt ** 2)
+                w2 = self.courant_sq * (p_curr[i + 1, j, k] + p_curr[i - 1, j, k] + p_curr[i, j + 1, k] + p_curr[i, j - 1, k] + p_curr[i, j, k + 1] + p_curr[i, j, k - 1])
+                w3 = (2.0 - k_val * self.courant_sq) * p_curr[i, j, k]
+                w4 = (bk_val - 1.0 + (alpha_a / 2.0) * self.dt) * p_prev[i, j, k]
 
-            p_prev[i, j, k] = (1.0 / w1) * (w2 + w3 + w4)
+                p_prev[i, j, k] = (1.0 / w1) * (w2 + w3 + w4)
+            else:
+                p_prev[i, j, k] = 0.0
+
+            if i == 30 and j == 30 and k == 30:
+                print(f"{p_curr[i, j, k]}")
+
+
 
 
     def update(self):
@@ -173,4 +210,3 @@ class FDTD_Simulation:
 
     def get_steps(self):
         return self._steps
-
