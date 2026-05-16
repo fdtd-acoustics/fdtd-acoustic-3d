@@ -28,6 +28,10 @@ def get_max_frequency(spec: dict) -> float:
         return _analyze_wav_max_freq(spec.get('filepath'))
     if w_type == 'ContinuousTone':
         return float(spec.get('freq', 0.0))
+    if w_type == 'SweptSine':
+        f1 = float(spec.get('freq_start', 0.0))
+        f2 = float(spec.get('freq_end', 0.0))
+        return max(f1, f2)
     return 0.0
 
 def _generate_gauss(spec: dict, dt: float, total_steps: int) -> np.ndarray:
@@ -49,6 +53,28 @@ def _generate_continuous_tone(spec: dict, dt: float, total_steps: int) -> np.nda
 
     waveform = amp * np.sin(2 * np.pi * freq * t)
 
+    return (waveform * vol).astype(np.float32)
+
+def _generate_swept_sine(spec: dict, dt: float, total_steps: int) -> np.ndarray:
+    f1 = float(spec['freq_start'])
+    f2 = float(spec['freq_end'])
+    amp = float(spec.get('amp', 1.0))
+    vol = float(spec.get('vol', 1.0))
+    method = spec.get('swept_method', 'logarithmic')
+
+    T = total_steps * dt # czas trwania
+
+    t = np.arange(total_steps) * dt
+
+    if method == 'Linear':
+        phase = 2 * np.pi * (f1 * t + (f2 - f1) / (2 * T) * t ** 2)
+    elif method == 'Logarithmic':
+        k = np.log(f2 / f1)
+        phase = 2 * np.pi * f1 * (T / k) * (np.exp((t / T) * k) - 1)
+    else:
+        raise ValueError(f"Unknown Sweep method: {method}")
+
+    waveform = amp * np.sin(phase)
     return (waveform * vol).astype(np.float32)
 
 
@@ -96,4 +122,5 @@ _HANDLERS = {
     "Gauss": _generate_gauss,
     "Custom": _load_wav,
     "ContinuousTone": _generate_continuous_tone,
+    "SweptSine": _generate_swept_sine,
 }

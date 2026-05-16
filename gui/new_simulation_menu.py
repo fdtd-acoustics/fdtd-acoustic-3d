@@ -7,7 +7,7 @@ class NewSimulationWindow(tk.Toplevel):
     def __init__(self, on_start=None, loaded_data: dict | None = None ) -> None:
         super().__init__()
         self.title("FDTD simulation configuration menu")
-        self.geometry("950x600")
+        self.geometry("1300x600")
         self.on_start = on_start
 
         self.loaded_data = loaded_data
@@ -106,7 +106,7 @@ class NewSimulationWindow(tk.Toplevel):
         # grid columns 2-3: Type
         ttk.Label(input_frame, text="Type:").grid(row=0, column=2, sticky="w", padx=2)
         self.combo_type = ttk.Combobox(
-            input_frame, values=["Gauss", "Custom", "ContinuousTone"], state="readonly", width=10
+            input_frame, values=["Gauss", "Custom", "ContinuousTone", "SweptSine"], state="readonly", width=12
         )
         self.combo_type.current(0)
         self.combo_type.grid(row=0, column=3, padx=5, pady=2)
@@ -120,7 +120,7 @@ class NewSimulationWindow(tk.Toplevel):
         self.frame_gauss = ttk.Frame(self.params_container)
         ttk.Label(self.frame_gauss, text="Amp:").pack(side=tk.LEFT, padx=(5, 2))
         self.entry_amp = ttk.Entry(self.frame_gauss, width=6)
-        self.entry_amp.insert(0, "1000.0")
+        self.entry_amp.insert(0, "100.0")
         self.entry_amp.pack(side=tk.LEFT)
         ttk.Label(self.frame_gauss, text="Freq:").pack(side=tk.LEFT, padx=(10, 2))
         self.entry_freq = ttk.Entry(self.frame_gauss, width=6)
@@ -133,6 +133,27 @@ class NewSimulationWindow(tk.Toplevel):
         self.btn_wav.pack(side=tk.LEFT, padx=5)
         self.lbl_wav_path = ttk.Label(self.frame_custom, text="No file", width=15, foreground="gray")
         self.lbl_wav_path.pack(side=tk.LEFT)
+
+        # swept sine
+        self.frame_swept_sine = ttk.Frame(self.params_container)
+        ttk.Label(self.frame_swept_sine, text="Method:").pack(side=tk.LEFT, padx=(5, 2))
+        self.combo_swept_method = ttk.Combobox(
+            self.frame_swept_sine, values=["Logarithmic", "Linear"], state="readonly", width=12
+        )
+        self.combo_swept_method.pack(side=tk.LEFT, padx=5)
+        self.combo_swept_method.current(0)
+        ttk.Label(self.frame_swept_sine, text="Amp:").pack(side=tk.LEFT, padx=(5, 2))
+        self.entry_amp_swept = ttk.Entry(self.frame_swept_sine, width=6)
+        self.entry_amp_swept.insert(0, "100.0")
+        self.entry_amp_swept.pack(side=tk.LEFT)
+        ttk.Label(self.frame_swept_sine, text="Freq Start:").pack(side=tk.LEFT, padx=(10, 2))
+        self.entry_freq_start = ttk.Entry(self.frame_swept_sine, width=6)
+        self.entry_freq_start.insert(0, "100")
+        self.entry_freq_start.pack(side=tk.LEFT)
+        ttk.Label(self.frame_swept_sine, text="Freq End:").pack(side=tk.LEFT, padx=(10, 2))
+        self.entry_freq_end = ttk.Entry(self.frame_swept_sine, width=6)
+        self.entry_freq_end.insert(0, "1000")
+        self.entry_freq_end.pack(side=tk.LEFT)
 
         self.frame_gauss.pack(side=tk.LEFT)
 
@@ -147,6 +168,7 @@ class NewSimulationWindow(tk.Toplevel):
         self.entry_vol.insert(0, "1.0")  # Domyślnie 1.0 (100%)
         self.entry_vol.grid(row=0, column=8, padx=5)
 
+        input_frame.columnconfigure(9, weight=1)
         # grid columns 7-8: Buttons
         ttk.Button(input_frame, text="Add source", command=self.add_source).grid(
             row=0, column=9, padx=10
@@ -209,12 +231,17 @@ class NewSimulationWindow(tk.Toplevel):
 
     def on_source_type_change(self, event: tk.Event) -> None:
         s_type = self.combo_type.get()
+
+        self.frame_gauss.pack_forget()
+        self.frame_custom.pack_forget()
+        self.frame_swept_sine.pack_forget()
+
         if s_type == "Gauss":
-            self.frame_custom.pack_forget()
             self.frame_gauss.pack(side=tk.LEFT)
         elif s_type == "Custom":
-            self.frame_gauss.pack_forget()
             self.frame_custom.pack(side=tk.LEFT)
+        elif s_type == "SweptSine":
+            self.frame_swept_sine.pack(side=tk.LEFT)
 
     def load_wav(self) -> None:
         filepath = filedialog.askopenfilename(filetypes=[("WAV Audio", "*.wav")])
@@ -235,11 +262,11 @@ class NewSimulationWindow(tk.Toplevel):
         try:
             sim_time = float(self.entry_time.get())
             sim_vol = float(self.entry_vol.get())
-
+            # TODO zabezpieczenia przed ujemna amplituda, vol, time oraz freq
             if s_type in ["Gauss", "ContinuousTone"]:
                 amp = float(self.entry_amp.get())
                 freq = float(self.entry_freq.get())
-                details = f"Type: {s_type}, Amp: {amp}, Freq: {freq} Hz"
+                details = f" Amp: {amp}, Freq: {freq} Hz"
                 source_info: dict = {
                     "name": source_name,
                     "type": s_type,
@@ -274,6 +301,28 @@ class NewSimulationWindow(tk.Toplevel):
                 self.current_wav_path = None
                 self.lbl_wav_path.config(text="No file", foreground="gray")
 
+            elif s_type == "SweptSine":
+                amp = float(self.entry_amp_swept.get())
+                freq1 = float(self.entry_freq_start.get())
+                freq2 = float(self.entry_freq_end.get())
+                swept_method = self.combo_swept_method.get()
+
+                if swept_method == "Logarithmic" and freq1 == freq2:
+                    raise ValueError("Start and end frequencies cannot be equal for a Logarithmic sweep!")
+
+                details = f"Method: {swept_method}, Amp: {amp}, Freq_start: {freq1} Hz, Freq_end: {freq2} Hz"
+                source_info: dict = {
+                    "name": source_name,
+                    "type": s_type,
+                    "swept_method": swept_method,
+                    "amp": amp,
+                    "freq_start": freq1,
+                    "freq_end": freq2,
+                    "time": sim_time,
+                    "vol": sim_vol,
+                    "coords": default_coords,
+                }
+
             self.sources_data.append(source_info)
 
             self.tree.insert("", tk.END, values=(s_type, source_name, sim_time, sim_vol, details))
@@ -281,8 +330,10 @@ class NewSimulationWindow(tk.Toplevel):
             self.entry_name.delete(0, tk.END)
             self.entry_name.insert(0, f"src_{len(self.sources_data) + 1}")
 
-        except ValueError:
-            messagebox.showerror("Error", "Amplitude, Frequency and Time must be valid numbers!")
+
+        except ValueError as e:
+            error_msg = str(e) if str(e) else "Amplitude, Frequency and Time must be valid numbers!"
+            messagebox.showerror("Error", error_msg)
 
     def remove_source(self) -> None:
         selected = self.tree.selection()
@@ -408,6 +459,8 @@ class NewSimulationWindow(tk.Toplevel):
                 for src in self.sources_data:
                     if src['type'] == ["Gauss", "ContinuousTone"]:
                         details = f"Amp: {src['amp']}, Freq: {src['freq']} Hz"
+                    elif src['type'] == "SweptSine":
+                        details = f"Method: {src['method']}, Amp: {src['amp']}, Freq_start: {src['freq1']} Hz, Freq_end: {src['freq2']} Hz"
                     else:
                         import os
                         fname = os.path.basename(src.get('wav_path', 'unknown.wav'))
