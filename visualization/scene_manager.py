@@ -1,6 +1,7 @@
 import taichi as ti
 
 from . import vis_config as config
+from .hud import ColorScaleHUD, VectorTextHUD
 
 class SceneRenderer:
     def __init__(self, grid):
@@ -13,7 +14,18 @@ class SceneRenderer:
         self.camera.fov(60)
         self.light_pos = (grid.Nx / 2, grid.Ny - grid.Ny / 5, grid.Nz / 2)
 
-    def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled, setup_data=None, show_voxels=False, show_mesh=False):
+        self.hud = ColorScaleHUD()
+        self.text_hud = VectorTextHUD()
+
+        self.text_hud.set_text([
+            ("-2", 0.20, 0.02),
+            ("-1", 0.35, 0.02),
+            ("0", 0.50, 0.02),
+            ("1", 0.64, 0.02),
+            ("2", 0.79, 0.02)
+        ], size=0.02)
+
+    def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled, setup_data=None, show_voxels=False, show_mesh=False, show_scale=False):
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
 
@@ -42,6 +54,10 @@ class SceneRenderer:
                 self.scene.mesh(simulation.plane_v_3, indices=plane_geo_3.indices, per_vertex_color=simulation.plane_c_3)
 
             self.canvas.scene(self.scene)
+
+            if show_scale:
+                self.hud.draw(self.canvas)
+                self.text_hud.draw(self.canvas, color=(0.0, 0.0, 0.0))
         else:
             pass
 

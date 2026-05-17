@@ -52,7 +52,7 @@ class SetupLoop():
 
     def _handle_setup_gui(self, setup_vis):
         gui = self._renderer.window.get_gui()
-        with gui.sub_window("Setup Mode", 0.05, 0.05, 0.5, 0.6):
+        with gui.sub_window("Setup Mode", 0.025, 0.025, 0.3, 0.55):
             gui.text("=== VIEW SETTINGS ===")
             self.show_voxels = gui.checkbox("Show Voxels", self.show_voxels)
             self.show_mesh = gui.checkbox("Show Mesh", self.show_mesh)
