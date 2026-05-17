@@ -39,15 +39,14 @@ class ColorScaleHUD:
     @ti.kernel
     def update_colors(self):
         for i in range(self.segments + 1):
-            val = -1.0 + 2.0 * (i / self.segments)
+            val = -1.0 + 2.0 * (i / self.segments)  # od -1.0 do 1.0
 
-            color = ti.Vector([1.0, 1.0, 1.0])
+            v = (val + 1.0) / 2.0
+            r = ti.math.clamp(1.5 - ti.abs(4.0 * v - 3.0), 0.0, 1.0)
+            g = ti.math.clamp(1.5 - ti.abs(4.0 * v - 2.0), 0.0, 1.0)
+            b = ti.math.clamp(1.5 - ti.abs(4.0 * v - 1.0), 0.0, 1.0)
 
-            if val > 0:
-                color = ti.Vector([1.0, 1.0 - val, 1.0 - val])
-            else:
-                color = ti.Vector([1.0 + val, 1.0 + val, 1.0])
-
+            color = ti.Vector([r, g, b])
             self.colors[i * 2] = color
             self.colors[i * 2 + 1] = color
 
@@ -57,7 +56,6 @@ class ColorScaleHUD:
 @ti.data_oriented
 class VectorTextHUD:
     def __init__(self, max_chars=30):
-        # Mapowanie, które linie zapalić dla jakiego znaku (jak w starych zegarkach elektronicznych)
         self.segment_map = {
             '0': [0, 1, 2, 3, 4, 5], '1': [1, 2], '2': [0, 1, 6, 4, 3],
             '3': [0, 1, 6, 2, 3], '4': [5, 6, 1, 2], '5': [0, 5, 6, 2, 3],
@@ -69,18 +67,17 @@ class VectorTextHUD:
 
     def set_text(self, texts_with_positions, size=0.03):
         verts = []
-        w = size * 0.5  # proporcja szerokości do wysokości znaku
+        w = size * 0.5
         h = size
 
-        # Współrzędne 7 segmentów: [start_x, start_y, koniec_x, koniec_y]
         lines = [
-            (0, h, w, h),       # 0: góra poziom
-            (w, h, w, h/2),     # 1: prawy-góra pion
-            (w, h/2, w, 0),     # 2: prawy-dół pion
-            (0, 0, w, 0),       # 3: dół poziom
-            (0, 0, 0, h/2),     # 4: lewy-dół pion
-            (0, h/2, 0, h),     # 5: lewy-góra pion
-            (0, h/2, w, h/2)    # 6: środek poziom
+            (0, h, w, h),
+            (w, h, w, h/2),
+            (w, h/2, w, 0),
+            (0, 0, w, 0),
+            (0, 0, 0, h/2),
+            (0, h/2, 0, h),
+            (0, h/2, w, h/2)
         ]
 
         for text, start_x, start_y in texts_with_positions:
@@ -91,9 +88,8 @@ class VectorTextHUD:
                         l = lines[seg]
                         verts.append([x_offset + l[0], start_y + l[1]])
                         verts.append([x_offset + l[2], start_y + l[3]])
-                x_offset += w + size * 0.3 # Odstęp do kolejnego znaku
+                x_offset += w + size * 0.3
 
-        # Wypychamy niewykorzystane wektory poza ekran, żeby ich nie rysować
         while len(verts) < self.max_lines * 2:
             verts.append([-1.0, -1.0])
 
