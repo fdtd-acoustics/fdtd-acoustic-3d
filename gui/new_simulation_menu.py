@@ -7,7 +7,7 @@ class NewSimulationWindow(tk.Toplevel):
     def __init__(self, on_start=None, loaded_data: dict | None = None ) -> None:
         super().__init__()
         self.title("FDTD simulation configuration menu")
-        self.geometry("1300x600")
+        self.geometry("1320x600")
         self.on_start = on_start
 
         self.loaded_data = loaded_data
@@ -194,7 +194,7 @@ class NewSimulationWindow(tk.Toplevel):
         self.tree.column("time", width=80, anchor="center")
 
         self.tree.heading("details", text="Details (Parameters / File)")
-        self.tree.column("details", width=350)
+        self.tree.column("details", width= 400)
 
         self.tree.pack(fill=tk.X, pady=5)
 
