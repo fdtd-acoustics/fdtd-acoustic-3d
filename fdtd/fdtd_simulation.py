@@ -121,7 +121,33 @@ class FDTD_Simulation:
                 self._alpha_A[i, j, k] = self._calculate_alpha_A(self.sound_speed, alpha_val, density_val)
                 self._alpha_B[i, j, k] = self._calculate_alpha_B(self.sound_speed, alpha_val)
 
-                beta_val = self._beta_from_alpha(alpha_val)
+                surface_alpha = alpha_val
+                if alpha_val == 0.0:
+                    nx_m = material_core.shape[0]
+                    ny_m = material_core.shape[1]
+                    nz_m = material_core.shape[2]
+                    best = 0.0
+                    if ii + 1 < nx_m:
+                        a = material_core[ii + 1, jj, kk][0]
+                        if a > best: best = a
+                    if ii - 1 >= 0:
+                        a = material_core[ii - 1, jj, kk][0]
+                        if a > best: best = a
+                    if jj + 1 < ny_m:
+                        a = material_core[ii, jj + 1, kk][0]
+                        if a > best: best = a
+                    if jj - 1 >= 0:
+                        a = material_core[ii, jj - 1, kk][0]
+                        if a > best: best = a
+                    if kk + 1 < nz_m:
+                        a = material_core[ii, jj, kk + 1][0]
+                        if a > best: best = a
+                    if kk - 1 >= 0:
+                        a = material_core[ii, jj, kk - 1][0]
+                        if a > best: best = a
+                    surface_alpha = best
+
+                beta_val = self._beta_from_alpha(surface_alpha)
 
             else:
                 #PML
@@ -185,18 +211,12 @@ class FDTD_Simulation:
             else:
                 p_prev[i, j, k] = 0.0
 
-            if i == 30 and j == 30 and k == 30:
-                print(f"{p_curr[i, j, k]}")
-
-
-
-
     def update(self):
         p_past = self.buffers[self._steps % 2]
         p_present = self.buffers[(self._steps + 1) % 2]
 
         self._step(p_past, p_present, self._steps)
-        self.source_manager.update_sources(p_past, self._steps) # ZRODLO
+        self.source_manager.update_sources(p_present, self._steps) # ZRODLO
         self.receiver_manager.update_receivers(p_past, self._steps) # MIKROFONY
         self._steps += 1
         self._current_time += self.dt
