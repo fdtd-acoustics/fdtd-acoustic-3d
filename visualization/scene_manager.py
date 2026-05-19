@@ -35,7 +35,11 @@ class SceneRenderer:
             ("+120 dB", 0.77, 0.02)
         ], size=0.02)
 
-    def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled, setup_data=None, show_voxels=False, show_mesh=False, show_scale=False):
+    def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled, setup_data=None, show_voxels=False, show_mesh=False, show_scale=False, color_hud=None, text_hud=None):
+
+        if not render_enabled:
+            return
+
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
 
@@ -63,11 +67,14 @@ class SceneRenderer:
                 self.scene.mesh(simulation.plane_v_2, indices=plane_geo_2.indices, per_vertex_color=simulation.plane_c_2)
                 self.scene.mesh(simulation.plane_v_3, indices=plane_geo_3.indices, per_vertex_color=simulation.plane_c_3)
 
-            self.canvas.scene(self.scene)
+            canvas = self.window.get_canvas()
+            canvas.scene(self.scene)  # To wrzuca obiekty 3D na ekran
 
-            if show_scale:
-                self.hud.draw(self.canvas)
-                self.text_hud.draw(self.canvas, color=(0.0, 0.0, 0.0))
+            # --- 2. DODAJ TO PRZED SAMYM window.show() ---
+            if color_hud:
+                color_hud.draw(canvas)
+            if text_hud:
+                text_hud.draw(canvas, color=(1.0, 1.0, 1.0))
         else:
             pass
 
