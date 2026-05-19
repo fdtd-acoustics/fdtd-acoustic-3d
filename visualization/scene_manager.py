@@ -68,9 +68,8 @@ class SceneRenderer:
                 self.scene.mesh(simulation.plane_v_3, indices=plane_geo_3.indices, per_vertex_color=simulation.plane_c_3)
 
             canvas = self.window.get_canvas()
-            canvas.scene(self.scene)  # To wrzuca obiekty 3D na ekran
+            canvas.scene(self.scene)
 
-            # --- 2. DODAJ TO PRZED SAMYM window.show() ---
             if color_hud:
                 color_hud.draw(canvas)
             if text_hud:
