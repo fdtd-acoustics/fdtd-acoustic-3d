@@ -22,6 +22,8 @@ class RenderLoop:
         self.show_voxels = False
         self.show_mesh = True
         self.show_scale = True
+        self.use_log_scale = True
+        self.max_db = 120.0
 
     def run(self) -> None:
         plane_geo_1 = PlaneGeometry(self._grid.Nx, self._grid.Nz)
@@ -32,6 +34,8 @@ class RenderLoop:
         slice_z = self._grid.Nz // 5 # plane_geo_2
         slice_x = self._grid.Nx // 5 # plane_geo_3
 
+        use_log_scale_int = 1 if self.use_log_scale else 0
+
         while self._renderer.is_running:
             slice_x, slice_y, slice_z = self._handle_gui(slice_x, slice_y, slice_z)
 
@@ -40,7 +44,7 @@ class RenderLoop:
 
             if self._render_enabled:
                 current_pressure = self._fdtd_sim.get_current_pressure()
-                self._sim.update_planes(slice_x, slice_y, slice_z, current_pressure)
+                self._sim.update_planes(slice_x, slice_y, slice_z, current_pressure, use_log_scale_int, self.max_db)
 
             self._renderer.render_frame(
                 simulation=self._sim,
@@ -58,6 +62,7 @@ class RenderLoop:
                     slice_y: int,
                     slice_z: int,
                     ) -> tuple[int, int, int]:
+
         gui = self._renderer.window.get_gui()
         with gui.sub_window("2D Slices", 0.025, 0.025, 0.3, 0.4):
             gui.text(f"Step: {self._fdtd_sim.get_steps()}")
@@ -83,5 +88,9 @@ class RenderLoop:
             scale_label = "HIDE LEGEND" if self.show_scale else "SHOW LEGEND"
             if gui.button(scale_label):
                 self.show_scale = not self.show_scale
+
+            # something is not working with this, but let's not worry about it xd
+            # self.use_log_scale = gui.checkbox("Use decibel scale", self.use_log_scale)
+            self.max_db = gui.slider_float("Max decibel limit", self.max_db, 60.0, 200.0)
 
         return slice_x, slice_y, slice_z
