@@ -49,6 +49,7 @@ class ReceiverManager:
         receivers: list[dict],
         max_time: float,
         dt: float,
+        pml_thick: int,
         output_dir: str | Path | None = None,
         save_plots: bool = True,
     ) -> "ReceiverManager":
@@ -62,9 +63,11 @@ class ReceiverManager:
         )
 
         for r in receivers:
-            x = int(r.get('x', 50))
-            y = int(r.get('y', 50))
-            z = int(r.get('z', 50))
+            x_val, y_val, z_val = r.get('x'), r.get('y'), r.get('z')
+
+            x = int(x_val) + pml_thick
+            y = int(y_val) + pml_thick
+            z = int(z_val) + pml_thick
 
             name = r.get('name', f"mic_{manager.count[None] + 1}")
 

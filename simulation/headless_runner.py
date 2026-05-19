@@ -99,10 +99,10 @@ class HeadlessRunner:
             grid_inner = (grid.Nx, grid.Ny, grid.Nz)
 
             source_manager = self._build_source_manager(
-                sources, grid.dt, total_steps, grid.dx, grid_inner
+                sources, grid.dt, total_steps, grid.dx, grid_inner, sim_config.pml_thick
             )
             receiver_manager = self._build_receiver_manager(
-                receivers, grid.dt, total_steps, grid.dx, grid_inner, out_dir, resolved_save_plots
+                receivers, grid.dt, total_steps, grid.dx, grid_inner, out_dir, resolved_save_plots, sim_config.pml_thick
             )
 
             fdtd_sim = builder.build_fdtd(
@@ -188,6 +188,7 @@ class HeadlessRunner:
         total_steps: int,
         dx: float,
         grid_inner: tuple[int, int, int],
+        pml_thick: int
     ) -> SourceManager:
         manager = SourceManager(max_sources=len(sources), max_steps=total_steps)
         for idx, src in enumerate(sources):
@@ -200,11 +201,16 @@ class HeadlessRunner:
                 ])
             waveform_array = np.ascontiguousarray(waveform_array, dtype=np.float32)
             x, y, z = _world_to_voxel(src["position"], grid_inner, dx)
+
+            x_val = x + pml_thick
+            y_val = y + pml_thick
+            z_val = z + pml_thick
+
             manager.add_source(
                 name=f"src_{idx}",
-                x=x,
-                y=y,
-                z=z,
+                x=x_val,
+                y=y_val,
+                z=z_val,
                 waveform_array=waveform_array,
             )
         return manager
@@ -218,6 +224,7 @@ class HeadlessRunner:
         grid_inner: tuple[int, int, int],
         output_dir: Path,
         save_plots: bool,
+        pml_thick: int
     ) -> ReceiverManager:
         manager = ReceiverManager(
             max_receivers=len(receivers),
@@ -228,7 +235,12 @@ class HeadlessRunner:
         )
         for rec in receivers:
             x, y, z = _world_to_voxel(rec["position"], grid_inner, dx)
-            manager.add_receiver(x=x, y=y, z=z, name=rec["name"])
+
+            x_val = x + pml_thick
+            y_val = y + pml_thick
+            z_val = z + pml_thick
+
+        manager.add_receiver(x=x_val, y=y_val, z=z_val, name=rec["name"])
         return manager
 
     @staticmethod
