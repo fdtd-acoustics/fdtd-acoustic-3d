@@ -131,8 +131,8 @@ class MainMenuWindow(tk.Tk):
         action = self.show_post_setup_dialog(sim_config,grid, sources, receivers)  # mozliwosc zapisu konfiguracji do .npz
 
         if action == "start":
-            source_manager = SourceManager.build_source_manager(sources, grid.dt )
-            receiver_manager = ReceiverManager.build_receiver_manager(receivers, sim_config.record_time, grid.dt)
+            source_manager = SourceManager.build_source_manager(sources, grid.dt, sim_config.pml_thick )
+            receiver_manager = ReceiverManager.build_receiver_manager(receivers, sim_config.record_time, grid.dt, sim_config.pml_thick)
 
             fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
             RenderLoop(fdtd_sim, grid, sim, renderer).run()

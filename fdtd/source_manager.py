@@ -52,7 +52,7 @@ class SourceManager:
 
 
     @classmethod
-    def build_source_manager(cls, sources: list[dict], dt: float) -> 'SourceManager':
+    def build_source_manager(cls, sources: list[dict], dt: float, pml_thick: int) -> 'SourceManager':
         max_time = max(source.get('time', 1.0) for source in sources)
         max_steps = int(np.ceil(max_time / dt))
 
@@ -61,19 +61,23 @@ class SourceManager:
             waveform = waveform_factory.synthesize(source, dt, max_steps)
             waveform = np.ascontiguousarray(waveform, dtype=np.float32)
 
-            x, y, z = source.get('coords')
+            coords = source.get('coords')
+            if coords is None or len(coords) < 3:
+                raise ValueError(f"Missing or invalid coordinates for source at index {idx}.")
+
+            x, y, z = coords
+            src_x = int(x) + pml_thick
+            src_y = int(y) + pml_thick
+            src_z = int(z) + pml_thick
 
             manager.add_source(
                 name=source.get('name', f"src_{idx}"),
-                x=int(x),
-                y=int(y),
-                z=int(z),
+                x=src_x,
+                y=src_y,
+                z=src_z,
                 waveform_array=waveform
             )
 
-            if 'coords' in source:
-                x, y, z = source['coords']
-                manager.set_pos(idx, int(x), int(y), int(z))
 
 
         return manager
