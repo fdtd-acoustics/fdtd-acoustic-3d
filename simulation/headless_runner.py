@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import taichi as ti
 import hashlib
 import json
 import math
@@ -256,11 +255,8 @@ class HeadlessRunner:
         else:
             iterator = range(total_steps)
 
-        for step in iterator:
+        for _ in iterator:
             fdtd_sim.update()
-
-            if step % 1000 == 0:
-                ti.sync()
 
     @staticmethod
     def _build_metadata(
