@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import wavfile
 from scipy.interpolate import interp1d
+from scipy import signal
 
 
 def synthesize(spec: dict, dt: float, total_steps: int) -> np.ndarray:
@@ -34,16 +35,33 @@ def get_max_frequency(spec: dict) -> float:
         return max(f1, f2)
     return 0.0
 
-def _generate_gauss(spec: dict, dt: float, total_steps: int) -> np.ndarray:
+
+def _generate_gauss(spec, dt, total_steps):
     freq = float(spec['freq'])
     amp = float(spec.get('amp', 1.0))
     vol = float(spec.get('vol', 1.0))
-    t = np.arange(total_steps) * dt
 
-    sigma = np.sqrt(2 * np.log(2)) / (2 * np.pi * freq)
-    delay = 4 * sigma
-    waveform = amp * np.exp(-((t - delay) ** 2) / (2 * sigma ** 2))
-    return (waveform * vol).astype(np.float32)
+    # recalculate entry params
+    T = dt
+    fs = 1.0 / dt
+    fc = freq / fs
+    sigma = np.sqrt(2 * np.log(2)) / (2 * np.pi * (fc / T))
+    init_delay = 4 * sigma / T
+    n = np.arange(total_steps)
+
+    #synthesize raw impulse
+    excitation_signal = np.exp(-np.square(T) * np.square(n - init_delay) / (2 * np.square(sigma)))
+
+    #max val before filter
+    max_val = np.max(np.abs(excitation_signal))
+
+    #filter
+    excitation_signal = signal.lfilter([1, -1], [1, -0.995], excitation_signal)
+    #normalization
+    excitation_signal = excitation_signal / np.max(np.abs(excitation_signal)) * max_val
+
+    return (amp * excitation_signal * vol).astype(np.float32)
+
 
 def _generate_continuous_tone(spec: dict, dt: float, total_steps: int) -> np.ndarray:
     freq = float(spec['freq'])

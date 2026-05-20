@@ -1,0 +1,31 @@
+ # Headless mirror of GUI run on Room_GoldenRatio.obj
+# do testow masowych ncu - bez wokselizacji( juz wczesniej zrobiona)
+
+scene:
+  obj_file: ../../assets/models/Room_GoldenRatio.obj
+  pml_thickness: 20
+  alpha_max: 0.15
+  record_time: 2.0
+
+physics:
+  sound_speed: 343.0
+  nodes_per_wavelength: 10
+  safety_factor: 0.95
+
+sources:
+  - position: [-0.0772, -0.4151, -3.0410]
+    time: 0.1
+    waveform:
+      type: Gauss
+      freq: 1000.0
+      amp: 100.0
+      vol: 1.0
+
+receivers:
+  - name: mic_1
+    position: [-0.0772, -0.4151, -3.0410]
+  - name: mic_2
+    position: [-0.5213, -0.4730, 2.9058]
+
+run:
+  save_plots: true
