@@ -99,6 +99,7 @@ class ReceiverManager:
             self.save_to_wav(name, data, global_max=global_max)
             if self._save_plots:
                 self.save_plot(name, data, global_max=global_max)
+                self.save_fft_plot(name, data)
             result[name] = data
         self.saved = 1
         return result
@@ -167,3 +168,38 @@ class ReceiverManager:
         plt.close()
 
         print(f"PLOT SAVED: {file_path} (Mode: {mode})")
+
+    def save_fft_plot(self, filename: str, pressure_data: np.ndarray):
+        if self._output_dir is not None:
+            directory = self._output_dir / "plots"
+        else:
+            directory = Path(config.PLOT_DIR)
+        os.makedirs(directory, exist_ok=True)
+
+        fft_filename = filename.replace('.png', '_fft.png') if filename.endswith('.png') else f"{filename}_fft.png"
+        file_path = os.path.join(directory, fft_filename)
+
+        fs = int(1.0 / self.dt)
+        n = len(pressure_data)
+
+        data = pressure_data - np.mean(pressure_data)
+        yf = np.fft.rfft(data)   # real fast fourier transform - zmiana dziedziny czasu na dziedzinę czestotliowsci
+        xf = np.fft.rfftfreq(n, self.dt)
+
+        magnitude = 20 * np.log10(np.abs(yf) + 1e-10) # tu zdobywamy względne dB danych częstotliwości
+
+        plt.figure(figsize=(10, 4))
+        plt.semilogx(xf, magnitude, color="#ff7f0e", linewidth=1)
+        plt.title(f"Frequency Spectrum (FFT) - {filename}")
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Magnitude [dB]")
+        plt.grid(True, which="both", ls="-", alpha=0.3)
+        plt.xlim(20, fs / 2)  # pasmo słyszalne
+        plt.tight_layout()
+        plt.savefig(file_path, dpi=150)
+        plt.close()
+        print(f"FFT PLOT SAVED: {file_path}")
+
+
+
+
