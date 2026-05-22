@@ -93,8 +93,8 @@ class HeadlessRunner:
 
             #Todo: to pewnie bedzie do zmiany bo to dziala jak cache ktory sie nie zmienia jak zmienisz
             # freq wiec pewnie cos w wokselizerze do dodania zeby hashowal config z jakim wokselizuje
-            if not Path(sim_config.npz_filepath).is_file():
-                builder.voxelize(grid)
+            # if not Path(sim_config.npz_filepath).is_file():
+            builder.voxelize(grid)
 
             grid_inner = (grid.Nx, grid.Ny, grid.Nz)
 
