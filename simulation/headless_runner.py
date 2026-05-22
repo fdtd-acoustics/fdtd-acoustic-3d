@@ -240,7 +240,7 @@ class HeadlessRunner:
             y_val = y + pml_thick
             z_val = z + pml_thick
 
-        manager.add_receiver(x=x_val, y=y_val, z=z_val, name=rec["name"])
+            manager.add_receiver(x=x_val, y=y_val, z=z_val, name=rec["name"])
         return manager
 
     @staticmethod

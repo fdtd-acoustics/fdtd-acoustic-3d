@@ -1,15 +1,14 @@
 import os
 from pathlib import Path
 
-import matplotlib
 import numpy as np
 import taichi as ti
 from scipy.io import wavfile
 
 import config
 
-matplotlib.use("Agg", force=False)
-import matplotlib.pyplot as plt
+from visualization.plotter import save_spl_plot, save_plot, save_fft_plot
+
 
 @ti.data_oriented
 class ReceiverManager:
@@ -81,17 +80,31 @@ class ReceiverManager:
         elif self.saved == 0:
             self.save_all()
 
-    def save_all(self) -> dict[str, np.ndarray]:
+    def save_all(self, use_global_normalization: bool = True) -> dict[str, np.ndarray]:
         if self.saved:
             return {}
         full_history = self.history.to_numpy()
         result: dict[str, np.ndarray] = {}
+
+        global_max = None
+        if use_global_normalization:
+            centered_history = full_history - np.mean(full_history, axis=1, keepdims=True)
+            global_max = np.max(np.abs(centered_history))
+            if global_max == 0: global_max = 1.0
+
+        if self._output_dir is not None:
+            directory = self._output_dir / "plots"
+        else:
+            directory = Path(config.PLOT_DIR)
+
         for i in range(self.count[None]):
             name = self.names[i]
             data = full_history[i, :]
-            self.save_to_wav(name, data)
+            self.save_to_wav(name, data, global_max=global_max)
             if self._save_plots:
-                self.save_plot(name, data)
+                save_plot(name, data, self.dt, directory, global_max=global_max)
+                save_spl_plot(name, data, self.dt, directory, global_max=global_max)
+                save_fft_plot(name, data, self.dt, directory)
             result[name] = data
         self.saved = 1
         return result
@@ -102,7 +115,7 @@ class ReceiverManager:
             pos = self.pos[i]
             self.history[i, step] = p_field[pos[0], pos[1], pos[2]]
 
-    def save_to_wav(self, filename: str, pressure_data: np.ndarray):
+    def save_to_wav(self, filename: str, pressure_data: np.ndarray, global_max: float):
         directory = self._output_dir if self._output_dir is not None else Path(config.WAV_DIR)
         os.makedirs(directory, exist_ok=True)
 
@@ -115,43 +128,17 @@ class ReceiverManager:
         pressure = pressure_data.copy()
         pressure -= np.mean(pressure)
 
-        max_val = np.max(np.abs(pressure))
-        if max_val > 0:
-            pressure = pressure / max_val
+        max = global_max if global_max is not None else np.max(np.abs(pressure))
+        if max > 0:
+            pressure = pressure / max
 
         pressure_int16 = (pressure * 32767).astype(np.int16)
         wavfile.write(file_path, fs, pressure_int16)
-        print(f"WAV SAVED: {file_path} (FS: {fs} Hz)")
 
-    def save_plot(self, filename: str, pressure_data: np.ndarray):
-        if self._output_dir is not None:
-            directory = self._output_dir / "plots"
-        else:
-            directory = Path(config.PLOT_DIR)
-        os.makedirs(directory, exist_ok=True)
+        mode = "Global" if global_max is not None else "Local"
+        print(f"WAV SAVED: {file_path} (FS: {fs} Hz, Mode: {mode})")
 
-        if not filename.endswith(".png"):
-            filename += ".png"
-        file_path = os.path.join(directory, filename)
 
-        pressure = pressure_data.copy()
-        pressure -= np.mean(pressure)
 
-        max_val = np.max(np.abs(pressure))
-        if max_val > 0:
-            pressure = pressure / max_val
 
-        time_axis = np.arange(len(pressure)) * self.dt
 
-        plt.figure(figsize=(10, 4))
-        plt.plot(time_axis, pressure, color="#1f77b4", linewidth=1)
-        plt.title(f"Pressure Signal - {filename} (Normalized)")
-        plt.xlabel("Time [s]")
-        plt.ylabel("Amplitude")
-        plt.ylim(-1.1, 1.1)
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        plt.savefig(file_path, dpi=150)
-        plt.close()
-
-        print(f"PLOT SAVED: {file_path}")
