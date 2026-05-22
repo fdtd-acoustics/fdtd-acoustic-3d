@@ -37,9 +37,6 @@ class SceneRenderer:
 
     def render_frame(self, simulation, plane_geo_1, plane_geo_2, plane_geo_3, render_enabled, setup_data=None, show_voxels=False, show_mesh=False, show_scale=False, color_hud=None, text_hud=None):
 
-        if not render_enabled:
-            return
-
         self.camera.track_user_inputs(self.window, movement_speed=config.CAMERA_SPEED, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
 
@@ -75,7 +72,7 @@ class SceneRenderer:
             if text_hud:
                 text_hud.draw(canvas, color=(1.0, 1.0, 1.0))
         else:
-            pass
+            self.canvas.set_background_color(config.BG_COLOR)
 
         self.window.show()
 
