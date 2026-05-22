@@ -7,7 +7,7 @@ from scipy.io import wavfile
 
 import config
 
-from visualization.plotter import save_spl_plot, save_plot, save_fft_plot
+
 
 
 @ti.data_oriented
@@ -81,6 +81,7 @@ class ReceiverManager:
             self.save_all()
 
     def save_all(self, use_global_normalization: bool = True) -> dict[str, np.ndarray]:
+        from visualization.plotter import save_spl_plot, save_plot, save_fft_plot
         if self.saved:
             return {}
         full_history = self.history.to_numpy()
