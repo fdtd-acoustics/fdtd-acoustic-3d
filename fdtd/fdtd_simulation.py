@@ -9,7 +9,7 @@ from .source_manager import SourceManager
 @ti.data_oriented
 class FDTD_Simulation:
     def __init__(self, sound_speed: float, dx: float, dt: float, pml_thick: int,
-                 alpha_max: float, safety_factor: float,
+                 alpha_max: float, pml_exponent: float, safety_factor: float,
                  source_manager: SourceManager, receiver_manager: ReceiverManager, material_core: ti.template()):
         self.source_manager = source_manager
         self.receiver_manager = receiver_manager
@@ -18,6 +18,7 @@ class FDTD_Simulation:
         self.dt = dt
         self.pml_thick = pml_thick
         self.alpha_max = alpha_max
+        self.pml_exponent = pml_exponent
 
         self.courant = (1.0 / math.sqrt(config.DIM)) * safety_factor
         self.courant_sq = self.courant ** 2
@@ -40,9 +41,7 @@ class FDTD_Simulation:
 
         self.buffers = [self._p_prev, self._p_curr]
 
-        self._prepare_simulation_data(material_core)
-        for i in range(0, 50):
-            print(f"{self._k_field[i, 50, 50]}")
+        self._prepare_simulation_data(material_core, self.pml_exponent)
 
     @ti.func
     def _calculate_alpha_A(self, sound_speed: ti.f32, alpha: ti.f32, density: ti.f32) -> ti.f32:
@@ -86,7 +85,7 @@ class FDTD_Simulation:
         return air_flag
 
     @ti.kernel
-    def _prepare_simulation_data(self, material_core: ti.template()):
+    def _prepare_simulation_data(self, material_core: ti.template(), pml_exp: ti.f32):
         for i, j, k in ti.ndrange(self.Nx, self.Ny, self.Nz):
             # ile sasiadow posiada punkt
             count = 0
@@ -171,7 +170,7 @@ class FDTD_Simulation:
 
                 dist_final = ti.max(dist_x, dist_y, dist_z)
                 if dist_final > 0.0:
-                    alpha_val = self.alpha_max * (dist_final**2)
+                    alpha_val = self.alpha_max * (dist_final ** pml_exp)
                     self._alpha_A[i, j, k] = self._calculate_alpha_A(self.sound_speed, alpha_val, density_val)  # gestosc powietrza
                     self._alpha_B[i, j, k] = self._calculate_alpha_B(self.sound_speed, alpha_val)
 

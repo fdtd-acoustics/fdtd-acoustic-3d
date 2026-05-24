@@ -89,6 +89,7 @@ class SimulationBuilder:
             dt=grid.dt,
             pml_thick = self._cfg.pml_thick,
             alpha_max= self._cfg.alpha_max,
+            pml_exponent = self._cfg.pml_exponent,
             safety_factor = self._cfg.safety_factor,
             source_manager=source_manager,
             receiver_manager = receiver_manager,

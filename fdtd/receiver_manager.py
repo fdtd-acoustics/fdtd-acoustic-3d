@@ -108,7 +108,7 @@ class ReceiverManager:
         for i in range(self.count[None]):
             name = self.names[i]
             data = full_history[i, :]
-            self.save_to_wav(name, data, global_max=global_max)
+            # self.save_to_wav(name, data, global_max=global_max)
             if self._save_plots:
                 save_plot(name, data, self.dt, directory, global_max=global_max)
                 save_spl_plot(name, data, self.dt, directory, global_max=global_max)

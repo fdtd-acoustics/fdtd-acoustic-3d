@@ -59,6 +59,7 @@ def _validate_scene(raw: dict, base_dir: Path) -> dict:
 
     pml_thickness = int(raw.get("pml_thick", raw.get("pml_thickness", 10)))
     alpha_max = float(raw.get("alpha_max", 0.5))
+    pml_exponent = float(raw.get("pml_exponent", 2.0))
     record_time = float(raw.get("record_time", 0.05))
 
     if pml_thickness <= 0:
@@ -72,6 +73,7 @@ def _validate_scene(raw: dict, base_dir: Path) -> dict:
         "obj_file": str(obj_path),
         "pml_thickness": pml_thickness,
         "alpha_max": alpha_max,
+        "pml_exponent": pml_exponent,
         "record_time": record_time,
     }
 

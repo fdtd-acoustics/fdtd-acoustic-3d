@@ -9,6 +9,7 @@ class SimulationConfig:
     pml_thick: int
     alpha_max: float
     record_time: float
+    pml_exponent: float = 2.0
     sound_speed: float = config.SOUND_SPEED
     nodes_per_wavelength: int = config.NODES_PER_WAVELENGTH
     dim: int = config.DIM
@@ -33,4 +34,5 @@ class SimulationConfig:
             pml_thick = cfg['pml_thickness'],
             alpha_max = cfg['alpha_max'],
             record_time = cfg['record_time'],
+            pml_exponent = cfg.get('pml_exponent', 2.0),
         )

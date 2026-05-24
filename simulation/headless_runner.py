@@ -79,6 +79,7 @@ class HeadlessRunner:
                 obj_filepath=scene["obj_file"],
                 pml_thick=scene["pml_thickness"],
                 alpha_max=scene["alpha_max"],
+                pml_exponent=scene.get("pml_exponent", 2.0),
                 record_time=scene["record_time"],
                 sound_speed=physics["sound_speed"],
                 nodes_per_wavelength=physics["nodes_per_wavelength"],
@@ -134,7 +135,7 @@ class HeadlessRunner:
                 wall_clock_s=wall_clock_s,
             )
 
-            self._write_artifacts(out_dir, cfg, metadata)
+            # self._write_artifacts(out_dir, cfg, metadata)  # disabled for batch sweep
         except BaseException as exc:
             failed_dir = self._mark_run_failed(out_dir, cfg, exc)
             print(f"Run failed. Artifacts moved to: {failed_dir}")
