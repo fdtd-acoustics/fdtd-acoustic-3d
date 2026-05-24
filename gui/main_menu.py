@@ -93,8 +93,8 @@ class MainMenuWindow(tk.Tk):
             mesh_faces = loaded_data.get('mesh_faces')
             mesh_colors = loaded_data.get('mesh_colors')
 
-            initial_sources = cfg['sources']
-            initial_receivers = loaded_data.get('receivers')
+            initial_receivers = loaded_data['receivers']
+            initial_sources = self.merge_and_set_defaults(cfg['sources'], loaded_data['sources'], grid)
         else:
             grid = builder.compute_grid(cfg['sources'])
             try:
@@ -139,6 +139,29 @@ class MainMenuWindow(tk.Tk):
         else:
             self.deiconify()
         return True
+
+    def merge_and_set_defaults(self, cfg_sources: list[dict], loaded_sources: list[dict], grid: GridParams) -> list[dict]:
+        if isinstance(loaded_sources, np.ndarray):
+            sources_list = loaded_sources.tolist()
+        else:
+            sources_list = loaded_sources or []
+
+        loaded_dict = {src.get('name'): src for src in sources_list}
+
+        final_sources = []
+        default_pos = (grid.Nx // 2, grid.Ny // 2, grid.Nz // 2)
+
+        for cfg_src in cfg_sources:
+            src_name = cfg_src.get('name')
+
+            if src_name in loaded_dict:
+                final_sources.append(loaded_dict[src_name])
+            else:
+                new_src = cfg_src.copy()
+                new_src['coords'] = default_pos
+                final_sources.append(new_src)
+
+        return final_sources
 
 
     def load_simulation(self):

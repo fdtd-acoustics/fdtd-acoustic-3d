@@ -17,7 +17,11 @@ class SetupLoop():
 
         self._sources_to_setup = initial_sources
 
-        self._microphones = initial_receivers if initial_receivers is not None else []
+        if initial_receivers is not None:
+            self._microphones = list(initial_receivers)
+        else:
+            self._microphones = []
+
         self._microphone_id = len(self._microphones) + 1
 
         self._is_running = True
@@ -28,11 +32,15 @@ class SetupLoop():
         self.show_mesh = True
 
     def run(self) -> tuple[list[dict], list[dict]]:
-
         setup_vis = {
             "sources_pos": ti.Vector.field(3, dtype=ti.f32, shape=len(self._sources_to_setup)),
             "mics_pos": ti.Vector.field(3, dtype=ti.f32, shape=20)
         }
+
+        self._sync_all_mics_to_vis(setup_vis)
+        for i, src in enumerate(self._sources_to_setup):
+            c = src.get('coords', (0, 0, 0))
+            setup_vis["sources_pos"][i] = ti.Vector([c[0], c[1], c[2]])
 
         while self._renderer.is_running and self._is_running:
             self._handle_setup_gui(setup_vis)
@@ -80,7 +88,10 @@ class SetupLoop():
         gui.text("--- MICROPHONES ---")
 
         if gui.button("+ Add Microphone"):
-            new_mic = {"name": f"mic_{self._microphone_id}", "x": 50, "y": 50, "z": 50}
+            x = self._grid.Nx // 2
+            y = self._grid.Ny // 2
+            z = self._grid.Nz // 2
+            new_mic = {"name": f"mic_{self._microphone_id}", "x": x, "y": y, "z": z}
             self._microphone_id += 1
             self._microphones.append(new_mic)
             self._edit_type = "MIC"

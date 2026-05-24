@@ -113,7 +113,8 @@ class NewSimulationWindow(tk.Toplevel):
         self.combo_type.bind("<<ComboboxSelected>>", self.on_source_type_change)
 
         # grid column 4: Params
-        self.params_container = ttk.Frame(input_frame)
+        self.params_container = ttk.Frame(input_frame, width=550, height=30)
+        self.params_container.pack_propagate(False)
         self.params_container.grid(row=0, column=4, sticky="w")
 
         # gauss panel
@@ -133,6 +134,18 @@ class NewSimulationWindow(tk.Toplevel):
         self.btn_wav.pack(side=tk.LEFT, padx=5)
         self.lbl_wav_path = ttk.Label(self.frame_custom, text="No file", width=15, foreground="gray")
         self.lbl_wav_path.pack(side=tk.LEFT)
+
+        # continuous tone
+        self.frame_continuous = ttk.Frame(self.params_container)
+        ttk.Label(self.frame_continuous, text="Amp:").pack(side=tk.LEFT, padx=(5, 2))
+        self.entry_amp_cont = ttk.Entry(self.frame_continuous, width=6)
+        self.entry_amp_cont.insert(0, "100.0")
+        self.entry_amp_cont.pack(side=tk.LEFT)
+
+        ttk.Label(self.frame_continuous, text="Freq:").pack(side=tk.LEFT, padx=(10, 2))
+        self.entry_freq_cont = ttk.Entry(self.frame_continuous, width=6)
+        self.entry_freq_cont.insert(0, "1000")
+        self.entry_freq_cont.pack(side=tk.LEFT)
 
         # swept sine
         self.frame_swept_sine = ttk.Frame(self.params_container)
@@ -155,7 +168,9 @@ class NewSimulationWindow(tk.Toplevel):
         self.entry_freq_end.insert(0, "1000")
         self.entry_freq_end.pack(side=tk.LEFT)
 
-        self.frame_gauss.pack(side=tk.LEFT)
+        self.frame_gauss.pack(side=tk.LEFT, fill=tk.Y)
+
+        input_frame.columnconfigure(4, weight=1)
 
         # grid columns 5-6: Time
         ttk.Label(input_frame, text="Time (s):").grid(row=0, column=5, sticky="w", padx=(10, 2))
@@ -168,10 +183,9 @@ class NewSimulationWindow(tk.Toplevel):
         self.entry_vol.insert(0, "1.0")  # Domyślnie 1.0 (100%)
         self.entry_vol.grid(row=0, column=8, padx=5)
 
-        input_frame.columnconfigure(9, weight=1)
-        # grid columns 7-8: Buttons
+        # grid columns 9-10: Buttons
         ttk.Button(input_frame, text="Add source", command=self.add_source).grid(
-            row=0, column=9, padx=10
+            row=0, column=9, padx=(10,5)
         )
         ttk.Button(input_frame, text="Remove selected", command=self.remove_source).grid(
             row=0, column=10, padx=5
@@ -235,11 +249,14 @@ class NewSimulationWindow(tk.Toplevel):
         self.frame_gauss.pack_forget()
         self.frame_custom.pack_forget()
         self.frame_swept_sine.pack_forget()
+        self.frame_continuous.pack_forget()
 
         if s_type == "Gauss":
             self.frame_gauss.pack(side=tk.LEFT)
         elif s_type == "Custom":
             self.frame_custom.pack(side=tk.LEFT)
+        elif s_type == "ContinuousTone":
+            self.frame_continuous.pack(side=tk.LEFT)
         elif s_type == "SweptSine":
             self.frame_swept_sine.pack(side=tk.LEFT)
 
@@ -263,7 +280,7 @@ class NewSimulationWindow(tk.Toplevel):
             sim_time = float(self.entry_time.get())
             sim_vol = float(self.entry_vol.get())
             # TODO zabezpieczenia przed ujemna amplituda, vol, time oraz freq
-            if s_type in ["Gauss", "ContinuousTone"]:
+            if s_type == "Gauss":
                 amp = float(self.entry_amp.get())
                 freq = float(self.entry_freq.get())
                 details = f" Amp: {amp}, Freq: {freq} Hz"
@@ -276,7 +293,19 @@ class NewSimulationWindow(tk.Toplevel):
                     "vol": sim_vol,
                     "coords": default_coords,
                 }
-
+            elif s_type == "ContinuousTone":
+                amp = float(self.entry_amp_cont.get())
+                freq = float(self.entry_freq_cont.get())
+                details = f" Amp: {amp}, Freq: {freq} Hz"
+                source_info: dict = {
+                    "name": source_name,
+                    "type": s_type,
+                    "amp": amp,
+                    "freq": freq,
+                    "time": sim_time,
+                    "vol": sim_vol,
+                    "coords": default_coords,
+                }
             elif s_type == "Custom":
                 if not self.current_wav_path:
                     messagebox.showwarning("No file", "Please select a .wav file for the Custom source!")
@@ -455,9 +484,12 @@ class NewSimulationWindow(tk.Toplevel):
             if hasattr(self, 'tree'):
                 for item in self.tree.get_children():
                     self.tree.delete(item)
-
                 for src in self.sources_data:
-                    if src['type'] == ["Gauss", "ContinuousTone"]:
+                    print("TYP")
+                    print(f"{src['type']}")
+                    if src['type'] == "Gauss":
+                        details = f"Amp: {src['amp']}, Freq: {src['freq']} Hz"
+                    elif src['type'] == "ContinuousTone":
                         details = f"Amp: {src['amp']}, Freq: {src['freq']} Hz"
                     elif src['type'] == "SweptSine":
                         details = f"Method: {src['method']}, Amp: {src['amp']}, Freq_start: {src['freq1']} Hz, Freq_end: {src['freq2']} Hz"

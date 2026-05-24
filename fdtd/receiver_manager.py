@@ -9,7 +9,6 @@ import config
 
 
 
-
 @ti.data_oriented
 class ReceiverManager:
     def __init__(
@@ -92,6 +91,8 @@ class ReceiverManager:
             centered_history = full_history - np.mean(full_history, axis=1, keepdims=True)
             global_max = np.max(np.abs(centered_history))
             if global_max == 0: global_max = 1.0
+
+        from visualization.plotter import save_spl_plot, save_plot, save_fft_plot
 
         if self._output_dir is not None:
             directory = self._output_dir / "plots"
