@@ -1,7 +1,7 @@
 # Blender 5.1.0 MTL File: 'Room_Well_2.blend'
 # www.blender.org
 
-newmtl _brickwork_unglazed_walls
+newmtl air_walls
 Ns 250.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.800000 0.800000 0.800000
