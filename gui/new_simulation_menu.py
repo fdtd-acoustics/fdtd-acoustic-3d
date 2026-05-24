@@ -426,6 +426,17 @@ class NewSimulationWindow(tk.Toplevel):
                 )
                 return
 
+        source_names = []
+        for src in self.sources_data:
+            source_names.append(src["name"])
+
+        if len(source_names) != len(set(source_names)):  # sprawdzanie czy sa zrodla o tej samej nazwie
+            messagebox.showerror(
+                "Error",
+                "Duplicate source names found! Each source must have a unique name."
+            )
+            return
+
         config = {
             "obj_file": self.obj_filepath,
             "sources": self.sources_data,

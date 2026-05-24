@@ -94,7 +94,7 @@ class MainMenuWindow(tk.Tk):
             mesh_colors = loaded_data.get('mesh_colors')
 
             initial_receivers = loaded_data['receivers']
-            initial_sources = self.merge_and_set_defaults(cfg['sources'], loaded_data['sources'], grid)
+            initial_sources = self.merge_and_set_defaults(cfg['sources'], grid, loaded_data['sources'])
         else:
             grid = builder.compute_grid(cfg['sources'])
             try:
@@ -115,7 +115,7 @@ class MainMenuWindow(tk.Tk):
             mesh_faces = data.get('mesh_faces')
             mesh_colors = data.get('mesh_colors')
 
-            initial_sources = cfg['sources']
+            initial_sources = self.merge_and_set_defaults(cfg['sources'], grid)
             initial_receivers = []
 
         sim = Simulation(grid, sim_config.pml_thick)
@@ -136,17 +136,20 @@ class MainMenuWindow(tk.Tk):
 
             fdtd_sim = builder.build_fdtd(grid, source_manager, receiver_manager)
             RenderLoop(fdtd_sim, grid, sim, renderer).run()
+            self.deiconify()
         else:
             self.deiconify()
         return True
 
-    def merge_and_set_defaults(self, cfg_sources: list[dict], loaded_sources: list[dict], grid: GridParams) -> list[dict]:
-        if isinstance(loaded_sources, np.ndarray):
-            sources_list = loaded_sources.tolist()
-        else:
-            sources_list = loaded_sources or []
+    def merge_and_set_defaults(self, cfg_sources: list[dict],  grid: GridParams, loaded_sources = None) -> list[dict]:
+        loaded_dict = {}
+        if loaded_sources is not None:
+            if isinstance(loaded_sources, np.ndarray):
+                sources_list = loaded_sources.tolist()
+            else:
+                sources_list = loaded_sources or []
 
-        loaded_dict = {src.get('name'): src for src in sources_list}
+            loaded_dict = {src.get('name'): src for src in sources_list}
 
         final_sources = []
         default_pos = (grid.Nx // 2, grid.Ny // 2, grid.Nz // 2)
