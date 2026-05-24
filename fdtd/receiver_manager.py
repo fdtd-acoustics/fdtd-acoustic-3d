@@ -18,6 +18,7 @@ class ReceiverManager:
         dt,
         output_dir: str | Path | None = None,
         save_plots: bool = True,
+        reference_waveform: np.ndarray | None = None,
     ):
         self.max_receivers = max(1, max_receivers)
         self.max_steps = max_steps
@@ -26,6 +27,8 @@ class ReceiverManager:
 
         self._output_dir = Path(output_dir) if output_dir is not None else None
         self._save_plots = save_plots
+
+        self.reference_waveform = reference_waveform
 
         self.count = ti.field(ti.i32, shape=())
         self.count[None] = 0
@@ -99,6 +102,9 @@ class ReceiverManager:
         else:
             directory = Path(config.PLOT_DIR)
 
+        if self.reference_waveform is not None:
+            from analysis.pml_testing import evaluate_pml
+
         for i in range(self.count[None]):
             name = self.names[i]
             data = full_history[i, :]
@@ -107,7 +113,17 @@ class ReceiverManager:
                 save_plot(name, data, self.dt, directory, global_max=global_max)
                 save_spl_plot(name, data, self.dt, directory, global_max=global_max)
                 save_fft_plot(name, data, self.dt, directory)
+
+            if self.reference_waveform is not None:
+                try:
+                    pml_results = evaluate_pml(data, self.reference_waveform, name,  self.dt, True,  directory)
+                    print(f"[Analiza PML] Mikrofon: '{name}' | Błąd odbicia: {pml_results['error_db']:.2f} dB")
+                except Exception as e:
+                    print(f"[Analiza PML] Nie udało się policzyć błędu dla '{name}': {e}")
+
             result[name] = data
+
+
         self.saved = 1
         return result
 

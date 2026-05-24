@@ -101,8 +101,11 @@ class HeadlessRunner:
             source_manager = self._build_source_manager(
                 sources, grid.dt, total_steps, grid.dx, grid_inner, sim_config.pml_thick
             )
+
+            reference_wave = source_manager.get_waveform_numpy(0)
+
             receiver_manager = self._build_receiver_manager(
-                receivers, grid.dt, total_steps, grid.dx, grid_inner, out_dir, resolved_save_plots, sim_config.pml_thick
+                receivers, grid.dt, total_steps, grid.dx, grid_inner, out_dir, resolved_save_plots, sim_config.pml_thick, reference_waveform=reference_wave
             )
 
             fdtd_sim = builder.build_fdtd(
@@ -224,7 +227,8 @@ class HeadlessRunner:
         grid_inner: tuple[int, int, int],
         output_dir: Path,
         save_plots: bool,
-        pml_thick: int
+        pml_thick: int,
+        reference_waveform: np.ndarray = None
     ) -> ReceiverManager:
         manager = ReceiverManager(
             max_receivers=len(receivers),
@@ -232,6 +236,7 @@ class HeadlessRunner:
             dt=dt,
             output_dir=output_dir,
             save_plots=save_plots,
+            reference_waveform=reference_waveform
         )
         for rec in receivers:
             x, y, z = _world_to_voxel(rec["position"], grid_inner, dx)

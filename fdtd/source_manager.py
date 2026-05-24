@@ -24,6 +24,12 @@ class SourceManager:
         for t in range(steps):
             dest[source_idx, t] = src[t]
 
+    def get_waveform_numpy(self, source_idx: int) -> np.ndarray:
+        if source_idx >= self.count[None]:
+            return None
+
+        return self.waveforms.to_numpy()[source_idx, :]
+
     def add_source(self, name: str,x:int, y:int, z:int, waveform_array: np.ndarray):
         idx = self.count[None]
 
