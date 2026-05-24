@@ -1,7 +1,7 @@
 # Blender 5.1.0 MTL File: 'Room_Cube.blend'
 # www.blender.org
 
-newmtl smooth_concrete
+newmtl air
 Ns 250.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.800000 0.800000 0.800000

@@ -20,23 +20,35 @@ def calculate_pml_error(pressure_array, split_index):
 
 
 def calculate_split_index(pressure_array, original_waveform):
-    max_amp = np.max(np.abs(original_waveform))
+    max_amp_src = np.max(np.abs(original_waveform))
 
-    if max_amp == 0:
+    if max_amp_src == 0:
         raise ValueError("The original signal is empty")
 
-    # próg 5% dla źródła - jak ustawimy mniej zacznie lapac duzo szumu i tego ogona ktory jest po gaussie
-    threshold = max_amp * 0.05
-    active_indices = np.where(np.abs(original_waveform) > threshold)[0]
-    actual_pulse_length = active_indices[-1] - active_indices[0] + 1
-    safety_margin = int(actual_pulse_length * 0.1)
+    # próg 5% dla źródła
+    threshold_src = max_amp_src * 0.05
+    active_indices_src = np.where(np.abs(original_waveform) > threshold_src)[0]
 
-    # moment zakończenia generowania fali w źródle
-    source_split_index = active_indices[-1] + safety_margin
+    pulse_length = active_indices_src[-1] - active_indices_src[0] + 1
+    safety_margin = int(pulse_length * 0.1)
 
-    # moment zakończenia przelatywania fali przez mikrofon
-    peak_index = np.argmax(np.abs(pressure_array))
-    mic_split_index = peak_index + (actual_pulse_length // 2) + safety_margin
+    source_split_index = active_indices_src[-1] + safety_margin
+
+    max_amp_mic = np.max(np.abs(pressure_array))
+
+    if max_amp_mic == 0:
+        return len(pressure_array) - 1, source_split_index
+
+    threshold_mic = max_amp_mic * 0.05
+    active_indices_mic = np.where(np.abs(pressure_array) > threshold_mic)[0]
+
+    if len(active_indices_mic) > 0:
+        arrival_index = active_indices_mic[0]
+    else:
+        arrival_index = 0
+
+    mic_split_index = arrival_index + pulse_length + safety_margin
+
     mic_split_index = min(mic_split_index, len(pressure_array) - 1)
 
     return mic_split_index, source_split_index

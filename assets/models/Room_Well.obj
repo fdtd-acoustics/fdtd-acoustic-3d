@@ -1,7 +1,7 @@
 # Blender 5.1.0
 # www.blender.org
 mtllib Room_Well.mtl
-o _brickwork_unglazed_walls
+o air_walls
 v 0.000000 0.000000 0.000000
 v 0.000000 15.200000 0.000000
 v 0.000000 0.000000 -2.400000
@@ -37,7 +37,7 @@ vt 0.125000 0.750000
 vt 0.125000 0.500000
 vt 0.625000 1.000000
 s 0
-usemtl _brickwork_unglazed_walls
+usemtl air_walls
 f 2/1/1 3/2/1 1/3/1
 f 4/4/2 7/5/2 3/2/2
 f 8/6/3 5/7/3 7/5/3
