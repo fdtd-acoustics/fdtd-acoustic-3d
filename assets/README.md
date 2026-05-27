@@ -61,6 +61,9 @@ Zaznacz opcję **Materials**
 | 16 | acoustic_foam            | 0.85  | 40.0    | #37474f |
 
 ## Rooms (X, Y, Z) [m]
+x - szerokosc
+y - dlugosc
+z - wysokosc
 1. Cube (3.0, 3.0, 3.0)
 	- fale będą na siebie bardzo nakładać, ekstremalne wzmocnienia i wygaszenia
 2. Golden Ratio (4.0, 6.4, 2.5)
