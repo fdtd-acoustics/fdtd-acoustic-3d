@@ -29,6 +29,12 @@ def add_subparser(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Suppress progress bar",
     )
+    parser.add_argument(
+        "--2d",
+        dest="dim_2d",
+        action="store_true",
+        help="Run simulation in 2D mode (default: 3D"
+    )
     parser.set_defaults(handler=run)
     return parser
 
@@ -39,10 +45,14 @@ def run(args: argparse.Namespace) -> int:
 
     runner = HeadlessRunner.from_yaml(args.config)
     save_plots = False if args.no_plots else None
+
+    dim = 2 if args.dim_2d else 3
+
     result = runner.run(
         output_dir=args.output,
         save_plots=save_plots,
         progress=not args.quiet,
+        dim = dim
     )
 
     print(f"Run completed. Output: {result.output_dir}")

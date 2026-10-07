@@ -62,6 +62,7 @@ class HeadlessRunner:
         output_dir: str | Path | None = None,
         save_plots: bool | None = None,
         progress: bool = True,
+        dim: int = 3,
     ) -> RunResult:
         cfg = self._cfg
         scene = cfg["scene"]
