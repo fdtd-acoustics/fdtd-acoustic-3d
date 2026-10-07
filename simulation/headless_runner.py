@@ -103,7 +103,7 @@ class HeadlessRunner:
                 sources, grid.dt, total_steps, grid.dx, grid_inner, sim_config.pml_thick, dim
             )
             receiver_manager = self._build_receiver_manager(
-                receivers, grid.dt, total_steps, grid.dx, grid_inner, out_dir, resolved_save_plots, sim_config.pml_thick
+                receivers, grid.dt, total_steps, grid.dx, grid_inner, out_dir, resolved_save_plots, sim_config.pml_thick, dim
             )
 
             fdtd_sim = builder.build_fdtd(
@@ -226,7 +226,8 @@ class HeadlessRunner:
         grid_inner: tuple[int, int, int],
         output_dir: Path,
         save_plots: bool,
-        pml_thick: int
+        pml_thick: int,
+        dim: int = 3,
     ) -> ReceiverManager:
         manager = ReceiverManager(
             max_receivers=len(receivers),
@@ -236,13 +237,13 @@ class HeadlessRunner:
             save_plots=save_plots,
         )
         for rec in receivers:
-            x, y, z = _world_to_voxel(rec["position"], grid_inner, dx)
+            coords = _world_to_voxel(rec["position"], grid_inner, dx)
 
-            x_val = x + pml_thick
-            y_val = y + pml_thick
-            z_val = z + pml_thick
+            x_val = coords[0] + pml_thick
+            y_val = coords[1] + pml_thick
+            z_val = coords[2] + pml_thick if dim == 3 else None
 
-            manager.add_receiver(x=x_val, y=y_val, z=z_val, name=rec["name"])
+            manager.add_receiver(name=rec["name"], x=x_val, y=y_val, z=z_val)
         return manager
 
     @staticmethod

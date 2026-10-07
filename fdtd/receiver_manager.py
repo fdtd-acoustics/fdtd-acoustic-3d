@@ -7,8 +7,6 @@ from scipy.io import wavfile
 
 import config
 
-
-
 @ti.data_oriented
 class ReceiverManager:
     def __init__(
@@ -18,6 +16,7 @@ class ReceiverManager:
         dt,
         output_dir: str | Path | None = None,
         save_plots: bool = True,
+        dim: int = 3
     ):
         self.max_receivers = max(1, max_receivers)
         self.max_steps = max_steps
@@ -31,13 +30,17 @@ class ReceiverManager:
         self.count[None] = 0
 
         self.names = []
-        self.pos = ti.Vector.field(3, dtype=ti.i32, shape=self.max_receivers)
+        self.pos = ti.Vector.field(dim, dtype=ti.i32, shape=self.max_receivers)
         self.history = ti.field(dtype=ti.f32, shape=(self.max_receivers, max_steps))
 
-    def add_receiver(self, x, y, z, name):
+    def add_receiver(self, name: str, x: int, y: int, z: int | None = None):
         idx = self.count[None]
         if idx < self.max_receivers:
-            self.pos[idx] = [x, y, z]
+            if z is None:
+                self.pos[idx] = [x, y]
+            else:
+                self.pos[idx] = [x, y, z]
+
             self.names.append(name)
             self.count[None] += 1
 
@@ -50,6 +53,7 @@ class ReceiverManager:
         pml_thick: int,
         output_dir: str | Path | None = None,
         save_plots: bool = True,
+        dim: int = 3,
     ) -> "ReceiverManager":
         max_steps = int(np.ceil(max_time / dt))
         manager = cls(
@@ -58,18 +62,29 @@ class ReceiverManager:
             dt=dt,
             output_dir=output_dir,
             save_plots=save_plots,
+            dim = dim,
         )
 
         for r in receivers:
-            x_val, y_val, z_val = r.get('x'), r.get('y'), r.get('z')
-
-            x = int(x_val) + pml_thick
-            y = int(y_val) + pml_thick
-            z = int(z_val) + pml_thick
-
             name = r.get('name', f"mic_{manager.count[None] + 1}")
 
-            manager.add_receiver(x, y, z, name)
+            x_val = r.get('x')
+            y_val = r.get('y')
+            z_val = r.get('z')
+
+            if x_val is None or y_val is None or (dim == 3 and z_val is None):
+                raise ValueError(f"Missing required coordinates for receiver '{name}' in {dim}D mode")
+
+            rec_x = int(x_val) + pml_thick
+            rec_y = int(y_val) + pml_thick
+            rec_z = int(z_val) + pml_thick if dim == 3 else None
+
+            manager.add_receiver(
+                name = name,
+                x = rec_x,
+                y = rec_y,
+                z = rec_z
+            )
 
         return manager
 
@@ -115,7 +130,7 @@ class ReceiverManager:
     def record_step_kernel(self, p_field: ti.template(), step: ti.i32):
         for i in range(self.count[None]):
             pos = self.pos[i]
-            self.history[i, step] = p_field[pos[0], pos[1], pos[2]]
+            self.history[i, step] = p_field[pos]
 
     def save_to_wav(self, filename: str, pressure_data: np.ndarray, global_max: float):
         directory = self._output_dir if self._output_dir is not None else Path(config.WAV_DIR)
