@@ -1,34 +1,44 @@
 import random
 import os
 import json
+import math
 
-ROOM_WIDTH_MIN = 3.0
-ROOM_WIDTH_MAX = 7.0
-ROOM_LENGTH_MIN = 3.0
-ROOM_LENGTH_MAX = 7.0
+ROOM_WIDTH_MIN = 2.0
+ROOM_WIDTH_MAX = 8.0
+ROOM_LENGTH_MIN = 2.0
+ROOM_LENGTH_MAX = 8.0
 
 OUTPUT_FOLDER = 'generated_rooms'
 
 class Room:
-    def __init__(self, room_shape, room_material_id, room_material, width_m, height_m, room_vertices):
+    def __init__(self, room_shape, room_material_id, width_m, height_m, room_vertices, speaker, microphones, foam_slots):
         self.room_shape = room_shape
         self.room_material_id = room_material_id
-        self.room_material = room_material
         self.width_m = width_m
         self.height_m = height_m
         self.room_vertices = room_vertices
+        self.speaker = speaker
+        self.microphones = microphones
+        self.foam_slots = foam_slots
 
     def to_dict(self):
         return {
             "room_shape": self.room_shape,
             "room_material_id": self.room_material_id,
-            "room_material": self.room_material,
             "width_m": self.width_m,
             "height_m": self.height_m,
-            "room_vertices": self.room_vertices
+            "room_vertices": self.room_vertices,
+            "speaker": self.speaker,
+            "microphones": self.microphones,
+            "foam_slots": self.foam_slots
         }
 
-def generate_l_shape_room(material_id=1, material_name="smooth_concrete"):
+def is_point_in_l_shape(x, y, w1, h1, w2, h2):
+    in_bottom_block = (0.0 <= x <= w2) and (0.0 <= y <= h2)
+    in_top_block = (0.0 <= x <= w1) and (h2 <= y <= h1)
+    return in_bottom_block or in_top_block
+
+def generate_l_shape_room(material_id=1, num_mics=3, num_slots=3):
     total_width = round(random.uniform(ROOM_WIDTH_MIN, ROOM_WIDTH_MAX), 1)
     total_height = round(random.uniform(ROOM_LENGTH_MIN, ROOM_LENGTH_MAX), 1)
 
@@ -50,13 +60,69 @@ def generate_l_shape_room(material_id=1, material_name="smooth_concrete"):
     max_width = max(w1, w2)
     max_height = max(h1, h2)
 
+    # Speaker position
+    speaker = {}
+    while True:
+        sx = round(random.uniform(0.3, max_width - 0.3), 2)
+        sy = round(random.uniform(0.3, max_height - 0.3), 2)
+        if is_point_in_l_shape(sx, sy, w1, h1, w2, h2):
+            speaker = {"x_m": sx, "y_m": sy}
+            break
+
+    # Microphones
+    microphones = []
+    while len(microphones) < num_mics:
+        mx = round(random.uniform(0.3, max_width - 0.3), 2)
+        my = round(random.uniform(0.3, max_height - 0.3), 2)
+        if is_point_in_l_shape(mx, my, w1, h1, w2, h2):
+            if [mx, my] != [speaker["x_m"], speaker["y_m"]] and [mx, my] not in microphones:
+                microphones.append({"x_m": mx, "y_m": my})
+
+    # Foam Slots
+    segments = [
+        {"p1": [0.0, 0.0], "p2": [w2, 0.0]},
+        {"p1": [w2, 0.0], "p2": [w2, h2]},
+        {"p1": [w2, h2], "p2": [w1, h2]},
+        {"p1": [w1, h2], "p2": [w1, h1]},
+        {"p1": [w1, h1], "p2": [0.0, h1]},
+        {"p1": [0.0, h1], "p2": [0.0, 0.0]}
+    ]
+
+    foam_slots = []
+    corner_threshold = 0.5
+
+    for _ in range(num_slots):
+        seg = random.choice(segments)
+        p1, p2 = seg["p1"], seg["p2"]
+
+        t = random.uniform(0.05, 0.95)
+        slot_x = round(p1[0] + t * (p2[0] - p1[0]), 2)
+        slot_y = round(p1[1] + t * (p2[1] - p1[1]), 2)
+
+        dist_to_p1 = math.hypot(slot_x - p1[0], slot_y - p1[1])
+        dist_to_p2 = math.hypot(slot_x - p2[0], slot_y - p2[1])
+        min_dist_to_corner = min(dist_to_p1, dist_to_p2)
+
+        is_near_corner = min_dist_to_corner < corner_threshold
+
+        dist_to_speaker = round(math.hypot(slot_x - speaker["x_m"], slot_y - speaker["y_m"]), 2)
+
+        foam_slots.append({
+            "x_m": slot_x,
+            "y_m": slot_y,
+            "is_near_corner": is_near_corner,
+            "distance_to_speaker": dist_to_speaker
+        })
+
     return Room(
         room_shape="L-shape",
         room_material_id=material_id,
-        room_material=material_name,
         width_m=max_width,
         height_m=max_height,
-        room_vertices=vertices
+        room_vertices=vertices,
+        speaker=speaker,
+        microphones=microphones,
+        foam_slots=foam_slots
     )
 
 
@@ -72,7 +138,10 @@ def save_room_to_json(room_obj, filename):
 
 if __name__ == "__main__":
     n = int(input("How many rooms to generate? "))
+    mics_count = int(input("Number of microphones per room (default 3): ") or 3)
+    slots_count = int(input("Number of foam slots per room (default 3): ") or 3)
+
     for i in range(n):
-        my_room = generate_l_shape_room(material_id=1, material_name="smooth_concrete")
+        my_room = generate_l_shape_room(material_id=1, num_mics=mics_count, num_slots=slots_count)
         save_room_to_json(my_room, filename=f"room_{i}.json")
     print(f"Generated {n} rooms.")
