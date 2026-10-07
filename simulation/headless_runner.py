@@ -100,7 +100,7 @@ class HeadlessRunner:
             grid_inner = (grid.Nx, grid.Ny, grid.Nz)
 
             source_manager = self._build_source_manager(
-                sources, grid.dt, total_steps, grid.dx, grid_inner, sim_config.pml_thick
+                sources, grid.dt, total_steps, grid.dx, grid_inner, sim_config.pml_thick, dim
             )
             receiver_manager = self._build_receiver_manager(
                 receivers, grid.dt, total_steps, grid.dx, grid_inner, out_dir, resolved_save_plots, sim_config.pml_thick
@@ -189,7 +189,8 @@ class HeadlessRunner:
         total_steps: int,
         dx: float,
         grid_inner: tuple[int, int, int],
-        pml_thick: int
+        pml_thick: int,
+        dim: int = 3,
     ) -> SourceManager:
         manager = SourceManager(max_sources=len(sources), max_steps=total_steps)
         for idx, src in enumerate(sources):
@@ -201,18 +202,18 @@ class HeadlessRunner:
                     np.zeros(total_steps - emit_steps, dtype=np.float32),
                 ])
             waveform_array = np.ascontiguousarray(waveform_array, dtype=np.float32)
-            x, y, z = _world_to_voxel(src["position"], grid_inner, dx)
+            coords = _world_to_voxel(src["position"], grid_inner, dx)
 
-            x_val = x + pml_thick
-            y_val = y + pml_thick
-            z_val = z + pml_thick
+            x_val = coords[0] + pml_thick
+            y_val = coords[1] + pml_thick
+            z_val = coords[2] + pml_thick if dim == 3 else None
 
             manager.add_source(
                 name=f"src_{idx}",
+                waveform_array=waveform_array,
                 x=x_val,
                 y=y_val,
-                z=z_val,
-                waveform_array=waveform_array,
+                z=z_val
             )
         return manager
 
