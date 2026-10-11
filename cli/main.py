@@ -2,7 +2,7 @@
 
 Subcommands:
     gui        — launch the existing tkinter GUI (no args)
-    run        — single headless simulation from a YAML config
+    run        — single headless simulation from a YAML config or NPZ config
     sweep      — ??
     validate   — validate a YAML config without running todo
     voxelize   — pre-build a scene .npz cache todo

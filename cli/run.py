@@ -12,7 +12,7 @@ def add_subparser(subparsers) -> argparse.ArgumentParser:
         help="Run a single headless simulation from a YAML config",
         description="Run one FDTD simulation defined by a YAML config and write the results to disk.",
     )
-    parser.add_argument("config", type=Path, help="Path to scene YAML")
+    parser.add_argument("config", type=Path, help="Path to scene YAML or .npz file")
     parser.add_argument(
         "--output",
         type=Path,
@@ -33,26 +33,36 @@ def add_subparser(subparsers) -> argparse.ArgumentParser:
         "--2d",
         dest="dim_2d",
         action="store_true",
-        help="Run simulation in 2D mode (default: 3D"
+        help="Run simulation in 2D mode (requires .npz config file)"
     )
     parser.set_defaults(handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> int:
+    is_npz = args.config.suffix.lower() == ".npz"
+
+    if args.dim_2d and not is_npz:
+        sys.exit("Error: 2D mode (--2d) requires a .npz file as input")
+    if is_npz and not args.dim_2d:
+        sys.exit("Error: Loading .npz files is currently only supported in 2D mode. Add the --2d flag.")
+
     _init_taichi()
     from simulation.headless_runner import HeadlessRunner
 
-    runner = HeadlessRunner.from_yaml(args.config)
-    save_plots = False if args.no_plots else None
+    if is_npz:
+        runner = HeadlessRunner.from_npz(args.config)
+    else:
+        runner = HeadlessRunner.from_yaml(args.config)
 
+    save_plots = False if args.no_plots else None
     dim = 2 if args.dim_2d else 3
 
     result = runner.run(
         output_dir=args.output,
         save_plots=save_plots,
         progress=not args.quiet,
-        dim = dim
+        dim = dim,
     )
 
     print(f"Run completed. Output: {result.output_dir}")
