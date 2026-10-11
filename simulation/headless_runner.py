@@ -50,12 +50,44 @@ class HeadlessRunner:
         return cls(normalized)
 
     @classmethod
-    def from_npz(cls, path: str | Path, overrides: dict | None = None) -> "HeadlessRunner":
-        # path = Path(path)
-        # cfg = _npz_to_cfg(path)
-        # if overrides:
-        #     cfg = _apply_overrides(cfg, overrides)
-        return cls({})  # todo
+    def from_npz(cls, path: str | Path, overrides: dict | None = None ) -> "HeadlessRunner":
+        with np.load(path, allow_pickle=True) as data:
+            sources_list = data['sources'].item()
+            receivers_list = data['receivers'].item()
+
+            cfg = {
+                "scene": {
+                    "obj_file": str(data['obj_filepath']),
+                    "pml_thickness": int(data['pml_thick']),
+                    "alpha_max": float(data['alpha_max']),
+                    "record_time": float(data['record_time']),
+                },
+                "physics": {
+                    "sound_speed": float(data['sound_speed']),
+                    "nodes_per_wavelength": float(data['nodes_per_wavelength']),
+                    "safety_factor": float(data['safety_factor']),
+                },
+                "sources": sources_list,
+                "receivers": receivers_list,
+                "run": {
+                    "save_plots": True,
+                    "output": "output/runs/"
+                },
+
+                "_is_npz": True,
+                "_npz_path": str(path),
+                "_grid_params": {
+                    "dx": float(data['dx']),
+                    "dt": float(data['dt']),
+                    "Nx": int(data['Nx']),
+                    "Ny": int(data['Ny']),
+                    "Nz": int(data['Nz']),
+                }
+            }
+
+            if overrides:
+                cfg = _apply_overrides(cfg, overrides)
+            return cls(cfg)
 
     def run(
         self,
@@ -86,16 +118,33 @@ class HeadlessRunner:
                 safety_factor=physics["safety_factor"],
             )
 
+            is_npz_mode = cfg.get("_is_npz", False)
+
+            if is_npz_mode:
+                sim_config.npz_filepath = cfg["_npz_path"]
+
             builder = SimulationBuilder(sim_config)
+            if is_npz_mode:
+                with np.load(cfg["_npz_path"], allow_pickle=True) as data:
+                    loaded_data = dict(data)
 
-            waveform_specs = [s["waveform"] for s in sources]
-            grid = builder.compute_grid(waveform_specs)
+                grid = builder.grid_from_data(loaded_data)
+
+                if not builder.validate_dx(grid, sources):
+                    max_freq = builder.get_max_safe_frequency(grid.dx)
+                    raise ValueError(
+                        f"Frequency Too High: The grid max safe frequency is {max_freq:.0f} Hz"
+                    )
+            else:
+                waveform_specs = [s["waveform"] for s in sources]
+                grid = builder.compute_grid(waveform_specs)
+
+                #Todo: to pewnie bedzie do zmiany bo to dziala jak cache ktory sie nie zmienia jak zmienisz
+                # freq wiec pewnie cos w wokselizerze do dodania zeby hashowal config z jakim wokselizuje
+                # if not Path(sim_config.npz_filepath).is_file():
+                builder.voxelize(grid)
+
             total_steps = int(math.ceil(scene["record_time"] / grid.dt))
-
-            #Todo: to pewnie bedzie do zmiany bo to dziala jak cache ktory sie nie zmienia jak zmienisz
-            # freq wiec pewnie cos w wokselizerze do dodania zeby hashowal config z jakim wokselizuje
-            # if not Path(sim_config.npz_filepath).is_file():
-            builder.voxelize(grid)
 
             grid_inner = (grid.Nx, grid.Ny, grid.Nz)
 
@@ -130,6 +179,7 @@ class HeadlessRunner:
                 sources=sources,
                 receivers=receivers,
                 wall_clock_s=wall_clock_s,
+                dim=dim
             )
 
             self._write_artifacts(out_dir, cfg, metadata)
@@ -272,28 +322,33 @@ class HeadlessRunner:
         sources: list[dict],
         receivers: list[dict],
         wall_clock_s: float,
+        dim: int = 3
     ) -> dict:
         Nx_inner, Ny_inner, Nz_inner = grid_inner
 
         config_bytes = yaml.safe_dump(cfg, sort_keys=True).encode("utf-8")
         config_hash = "sha256:" + hashlib.sha256(config_bytes).hexdigest()
 
+        grid_meta = {
+            "Nx_inner": Nx_inner,
+            "Ny_inner": Ny_inner,
+            "Nx_total": Nx_inner + 2 * pml,
+            "Ny_total": Ny_inner + 2 * pml,
+            "pml_thickness": pml,
+            "dx": float(dx),
+            "dt": float(dt),
+            "total_steps": int(total_steps),
+        }
+
+        if dim == 3:
+            grid_meta["Nz_inner"] = Nz_inner
+            grid_meta["Nz_total"] = Nz_inner + 2 * pml
+
         return {
             "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "wall_clock_s": round(wall_clock_s, 3),
             "config_hash": config_hash,
-            "grid": {
-                "Nx_inner": Nx_inner,
-                "Ny_inner": Ny_inner,
-                "Nz_inner": Nz_inner,
-                "Nx_total": Nx_inner + 2 * pml,
-                "Ny_total": Ny_inner + 2 * pml,
-                "Nz_total": Nz_inner + 2 * pml,
-                "pml_thickness": pml,
-                "dx": float(dx),
-                "dt": float(dt),
-                "total_steps": int(total_steps),
-            },
+            "grid": grid_meta,
             "sources": [
                 {
                     "index": i,
