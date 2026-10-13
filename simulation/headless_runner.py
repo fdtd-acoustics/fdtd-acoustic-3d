@@ -52,8 +52,8 @@ class HeadlessRunner:
     @classmethod
     def from_npz(cls, path: str | Path, overrides: dict | None = None ) -> "HeadlessRunner":
         with np.load(path, allow_pickle=True) as data:
-            sources_list = data['sources'].item()
-            receivers_list = data['receivers'].item()
+            sources_list = data['sources'].tolist()
+            receivers_list = data['receivers'].tolist()
 
             cfg = {
                 "scene": {
@@ -115,11 +115,11 @@ class HeadlessRunner:
                 record_time=scene["record_time"],
                 sound_speed=physics["sound_speed"],
                 nodes_per_wavelength=physics["nodes_per_wavelength"],
+                dim=dim,
                 safety_factor=physics["safety_factor"],
             )
 
             is_npz_mode = cfg.get("_is_npz", False)
-
             if is_npz_mode:
                 sim_config.npz_filepath = cfg["_npz_path"]
 
@@ -242,7 +242,7 @@ class HeadlessRunner:
         pml_thick: int,
         dim: int = 3,
     ) -> SourceManager:
-        manager = SourceManager(max_sources=len(sources), max_steps=total_steps)
+        manager = SourceManager(max_sources=len(sources), max_steps=total_steps, dim=dim)
         for idx, src in enumerate(sources):
             emit_steps = min(int(math.ceil(src["time"] / dt)), total_steps)
             waveform_array = waveform_factory.synthesize(src["waveform"], dt, emit_steps)
@@ -285,6 +285,7 @@ class HeadlessRunner:
             dt=dt,
             output_dir=output_dir,
             save_plots=save_plots,
+            dim=dim
         )
         for rec in receivers:
             coords = _world_to_voxel(rec["position"], grid_inner, dx)

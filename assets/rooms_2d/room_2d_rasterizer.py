@@ -10,6 +10,10 @@ SOUND_SPEED = 343.0
 NODES_PER_WAVELENGTH = 10
 SAFETY_FACTOR = 0.95
 
+PML_THICK = 10
+ALPHA_MAX = 5.0
+RECORD_TIME = 0.5 # tymczasowo, trzeba bedzie zrobic to z zewnatrz mysle
+
 def rasterize_room(json_filepath, dx):
     with open(json_filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -45,17 +49,8 @@ def rasterize_room(json_filepath, dx):
     else:
         raise NotImplementedError(f"Room Shape: '{room_shape}' not implemented.")
 
-    speaker_grid = {
-        "grid_x": int(round(data["speaker"]["x_m"] / dx)) + 1,
-        "grid_y": int(round(data["speaker"]["y_m"] / dx)) + 1
-    }
-
-    microphones_grid = []
-    for mic in data["microphones"]:
-        microphones_grid.append({
-            "grid_x": int(round(mic["x_m"] / dx)) + 1,
-            "grid_y": int(round(mic["y_m"] / dx)) + 1
-        })
+    source_data_json = data["speaker"]
+    microphones_json = data["microphones"]
 
     foam_slots_grid = []
     for slot in data["foam_slots"]:
@@ -66,10 +61,10 @@ def rasterize_room(json_filepath, dx):
             "distance_to_speaker": slot["distance_to_speaker"]
         })
 
-    return grid, speaker_grid, microphones_grid, foam_slots_grid
+    return grid, source_data_json, microphones_json, foam_slots_grid
 
 
-def rasterize_all_rooms(dx, dt):
+def rasterize_all_rooms(dx, dt, max_freq):
     if not os.path.exists(INPUT_FOLDER):
         print(f"Folder {INPUT_FOLDER} does not exist. Generate rooms first.")
         return
@@ -85,19 +80,55 @@ def rasterize_all_rooms(dx, dt):
     for filename in json_files:
         json_path = os.path.join(INPUT_FOLDER, filename)
 
-        grid, speaker_grid, microphones_grid, foam_slots_grid = rasterize_room(json_path, dx=dx)
+        grid, source_json, mics_json, foam_slots_grid = rasterize_room(json_path, dx=dx)
+
+        sources_data = [
+            {
+                "name": "source_main",
+                "position": (source_json["x_m"], source_json["y_m"], 0.0),
+                "time": 0.5,
+                "waveform": {
+                    "type": "Gauss",
+                    "freq": float(max_freq),
+                    "amp": 100.0,
+                    "vol": 1.0
+                },
+                "type": "Gauss",  # tymczasowo, trzeba zmienic headless mode
+                "freq": float(max_freq)   # tymczasowo, trzeba zmienic headless mode
+            }
+        ]
+
+        receivers_data = [
+            {
+                "name": f"mic_{idx}",
+                "position": (mic["x_m"], mic["y_m"], 0.0)
+            }
+            for idx, mic in enumerate(mics_json)
+        ]
+
+        ny, nx = grid.shape
 
         base_name = os.path.splitext(filename)[0]
         output_npz_path = os.path.join(OUTPUT_FOLDER, f"{base_name}.npz")
 
         np.savez_compressed(
             output_npz_path,
-            grid=grid,
+            material_core=grid,
             dx=dx,
             dt=dt,
-            speaker=speaker_grid,
-            microphones=microphones_grid,
-            foam_slots=foam_slots_grid
+            Nx=nx,
+            Ny=ny,
+            Nz=1,
+            pml_thick=PML_THICK,
+            alpha_max=ALPHA_MAX,
+            sound_speed=SOUND_SPEED,
+            nodes_per_wavelength=NODES_PER_WAVELENGTH,
+            safety_factor=SAFETY_FACTOR,
+            record_time=RECORD_TIME,
+            obj_filepath=json_path,
+            sources=np.array(sources_data, dtype=object),
+            receivers=np.array(receivers_data, dtype=object),
+            foam_slots=np.array(foam_slots_grid, dtype=object)
         )
 
         print(f"Rasterized {filename} -> {base_name}.npz (Grid Shape: {grid.shape})")
@@ -120,4 +151,4 @@ if __name__ == "__main__":
     dx = compute_dx(max_freq)
     dt = compute_dt(dx)
 
-    rasterize_all_rooms(dx, dt)
+    rasterize_all_rooms(dx, dt, max_freq)

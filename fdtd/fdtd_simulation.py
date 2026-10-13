@@ -152,7 +152,6 @@ class FDTD_Simulation:
                 if alpha_val == 0.0:
                     nx_m = material_core.shape[0]
                     ny_m = material_core.shape[1]
-                    nz_m = material_core.shape[2]
                     best = 0.0
                     if ii + 1 < nx_m:
                         a = material_core[ii + 1, jj][0]
@@ -305,7 +304,7 @@ class FDTD_Simulation:
 
     @ti.kernel
     def _step_2d(self, p_prev: ti.template(), p_curr: ti.template(), steps: ti.i32):
-        for i, j, k in ti.ndrange((1, self.Nx - 1), (1, self.Ny - 1)):
+        for i, j in ti.ndrange((1, self.Nx - 1), (1, self.Ny - 1)):
             k_val = self._k_field[i, j]
             if k_val > 0:
                 bk_val = self._bk_field[i, j]

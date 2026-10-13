@@ -21,10 +21,10 @@ def _fill_material_kernel(
         map_alpha: ti.types.ndarray(),
         map_density: ti.types.ndarray()
 ):
-    for i, j, k in material_field:
-        mat_id = data_np[i, j, k]
-        material_field[i, j, k][0] = map_alpha[mat_id]
-        material_field[i, j, k][1] = map_density[mat_id]
+    for I in ti.grouped(material_field):
+        mat_id = data_np[I]
+        material_field[I][0] = map_alpha[mat_id]
+        material_field[I][1] = map_density[mat_id]
 
 class SimulationBuilder:
     """Main Builder which gives access to simulation building methods"""
@@ -93,15 +93,16 @@ class SimulationBuilder:
             source_manager=source_manager,
             receiver_manager = receiver_manager,
             material_core=material_core,
+            dim=self._cfg.dim
         )
 
     def _prepare_material_core(self) -> ti.Vector:
+        path = getattr(self._cfg, "_npz_path", self._cfg.npz_filepath)  #TODO tymczasowo, powtarzaja sie sciezki
+
         with np.load(self._cfg.npz_filepath) as data:
-            matrix_3d = data['material_core'].astype(np.int32)
+            matrix = data['material_core'].astype(np.int32)
 
-        nx, ny, nz = matrix_3d.shape
-
-        material_core = ti.Vector.field(2, dtype=ti.f32, shape=(nx, ny, nz))
+        material_core = ti.Vector.field(2, dtype=ti.f32, shape=matrix.shape)
 
         material_map = self.get_material_map_from_csv(MAIN_MATERIAL_LIBRARY)
 
@@ -109,7 +110,7 @@ class SimulationBuilder:
         alphas = np.array([material_map[i]['alpha'] for i in ids], dtype=np.float32)
         densities = np.array([material_map[i]['density'] for i in ids], dtype=np.float32)
 
-        _fill_material_kernel(material_core, matrix_3d, alphas, densities)
+        _fill_material_kernel(material_core, matrix, alphas, densities)
 
         return material_core
 

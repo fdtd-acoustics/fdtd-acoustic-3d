@@ -11,7 +11,7 @@ class SimulationConfig:
     record_time: float
     sound_speed: float = config.SOUND_SPEED
     nodes_per_wavelength: int = config.NODES_PER_WAVELENGTH
-    dim: int = config.DIM
+    dim: int = 3
     safety_factor: float = config.SAFETY_FACTOR
 
     _scenes_out_dir: Path = config.VOXELS_DIR
@@ -23,6 +23,9 @@ class SimulationConfig:
             return self._npz_filepath
         return self._scenes_out_dir / (Path(self.obj_filepath).stem + ".npz")
 
+    @npz_filepath.setter
+    def npz_filepath(self, path: str | Path):
+        self._npz_filepath = Path(path)
 
     @classmethod
     def from_dict(cls, cfg: dict) -> 'SimulationConfig':
