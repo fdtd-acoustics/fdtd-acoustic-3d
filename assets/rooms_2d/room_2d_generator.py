@@ -38,7 +38,7 @@ def is_point_in_l_shape(x, y, w1, h1, w2, h2):
     in_top_block = (0.0 <= x <= w1) and (h2 <= y <= h1)
     return in_bottom_block or in_top_block
 
-def generate_l_shape_room(material_id=1, num_mics=3, num_slots=3):
+def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
     total_width = round(random.uniform(ROOM_WIDTH_MIN, ROOM_WIDTH_MAX), 1)
     total_height = round(random.uniform(ROOM_LENGTH_MIN, ROOM_LENGTH_MAX), 1)
 
@@ -89,30 +89,47 @@ def generate_l_shape_room(material_id=1, num_mics=3, num_slots=3):
     ]
 
     foam_slots = []
-    corner_threshold = 0.5
+    #corner_threshold = 0.5
 
-    for _ in range(num_slots):
-        seg = random.choice(segments)
-        p1, p2 = seg["p1"], seg["p2"]
+    for segment in segments:
+        p1 = segment["p1"]
+        p2 = segment["p2"]
 
-        t = random.uniform(0.05, 0.95)
-        slot_x = round(p1[0] + t * (p2[0] - p1[0]), 2)
-        slot_y = round(p1[1] + t * (p2[1] - p1[1]), 2)
+        segment_length = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+        num_slots_per_segment = int(segment_length // foam_size)
 
-        dist_to_p1 = math.hypot(slot_x - p1[0], slot_y - p1[1])
-        dist_to_p2 = math.hypot(slot_x - p2[0], slot_y - p2[1])
-        min_dist_to_corner = min(dist_to_p1, dist_to_p2)
+        if num_slots_per_segment > 0:
+            offset = (segment_length - (num_slots_per_segment * foam_size))/2.0
 
-        is_near_corner = min_dist_to_corner < corner_threshold
+            dx = (p2[0] - p1[0]) / segment_length
+            dy = (p2[1] - p1[1]) / segment_length
 
-        dist_to_speaker = round(math.hypot(slot_x - speaker["x_m"], slot_y - speaker["y_m"]), 2)
+            nx = -dy
+            ny = dx
 
-        foam_slots.append({
-            "x_m": slot_x,
-            "y_m": slot_y,
-            "is_near_corner": is_near_corner,
-            "distance_to_speaker": dist_to_speaker
-        })
+            orientation_str = "horizontal" if abs(ny) > 0.5 else "vertical"
+
+            for j in range(num_slots_per_segment):
+                start_dist = offset + j * foam_size
+
+                center_dist = start_dist + (foam_size / 2.0)
+
+                slot_x = round(p1[0] + dx * center_dist, 3)
+                slot_y = round(p1[1] + dy * center_dist, 3)
+
+                dist_to_p1 = math.hypot(slot_x - p1[0], slot_y - p1[1])
+                dist_to_p2 = math.hypot(slot_x - p2[0], slot_y - p2[1])
+                distance_to_corner = round(min(dist_to_p1, dist_to_p2), 3)
+
+                dist_to_speaker = round(math.hypot(slot_x - speaker["x_m"], slot_y - speaker["y_m"]), 3)
+
+                foam_slots.append({
+                    "x_m": slot_x,
+                    "y_m": slot_y,
+                    "distance_to_corner": distance_to_corner,
+                    "distance_to_speaker": dist_to_speaker,
+                    "orientation": orientation_str
+                })
 
     return Room(
         room_shape="L-shape",
@@ -137,11 +154,12 @@ def save_room_to_json(room_obj, filename):
 
 
 if __name__ == "__main__":
-    n = int(input("How many rooms to generate? "))
-    mics_count = int(input("Number of microphones per room (default 3): ") or 3)
-    slots_count = int(input("Number of foam slots per room (default 3): ") or 3)
+    n = int(input("How many rooms to generate? (default 10) ") or 10)
+    foam_size = int(input("Size of a single acoustic foam [cm] (default 25) ") or 25)
+    foam_size_m = float(foam_size)/100.0
+    mics_count = int(input("Number of microphones per room (default 5) ") or 3)
 
     for i in range(n):
-        my_room = generate_l_shape_room(material_id=1, num_mics=mics_count, num_slots=slots_count)
+        my_room = generate_l_shape_room(material_id=1, num_mics=mics_count, foam_size=foam_size_m)
         save_room_to_json(my_room, filename=f"room_{i}.json")
     print(f"Generated {n} rooms.")

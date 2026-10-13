@@ -37,17 +37,32 @@ def visualize_and_save_rooms():
         plt.figure(figsize=(6, 6))
         plt.imshow(grid, cmap='Set1', origin='lower')
 
+        # Speakers
         if sources:
             src = sources[0]
             src_x = src['position'][0] / dx
             src_y = src['position'][1] / dx
-            plt.scatter(src_x, src_y, color='yellow', marker='*', s=150, label='Source', zorder=5)
+            plt.scatter(src_x, src_y, color='yellow', marker='*', s=128, label='Source', zorder=5)
 
+        # Microphones
         if receivers:
             rec_x = [r['position'][0] / dx for r in receivers]
             rec_y = [r['position'][1] / dx for r in receivers]
-            plt.scatter(rec_x, rec_y, color='blue', marker='o', s=80, label='Receivers', zorder=4)
+            plt.scatter(rec_x, rec_y, color='blue', marker='o', s=64, label='Receivers', zorder=4)
 
+            # Microphone numbers
+            for i, (x, y) in enumerate(zip(rec_x, rec_y)):
+                plt.annotate(str(i), (x, y),
+                             textcoords="offset points",
+                             xytext=(0,0),
+                             ha='center',
+                             va='center',
+                             fontsize=6,
+                             color='white',
+                             fontweight='bold',
+                             zorder=6)
+
+        # Foam Slots
         if foam_slots:
             slot_x = [s['grid_x'] for s in foam_slots]
             slot_y = [s['grid_y'] for s in foam_slots]
