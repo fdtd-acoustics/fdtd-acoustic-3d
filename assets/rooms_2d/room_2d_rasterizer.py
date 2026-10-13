@@ -57,8 +57,9 @@ def rasterize_room(json_filepath, dx):
         foam_slots_grid.append({
             "grid_x": int(round(slot["x_m"] / dx)) + 1,
             "grid_y": int(round(slot["y_m"] / dx)) + 1,
-            "is_near_corner": slot["is_near_corner"],
-            "distance_to_speaker": slot["distance_to_speaker"]
+            "distance_to_corner": slot["distance_to_corner"],
+            "distance_to_speaker": slot["distance_to_speaker"],
+            "orientation": slot["orientation"]
         })
 
     return grid, source_data_json, microphones_json, foam_slots_grid
@@ -146,7 +147,7 @@ def compute_dt(dx):
     return (dx / SOUND_SPEED) * courant_limit * SAFETY_FACTOR
 
 if __name__ == "__main__":
-    max_freq = int(input("Max Frequency [Hz]: "))
+    max_freq = int(input("Max Frequency [Hz] (default 1000) ") or 1000)
 
     dx = compute_dx(max_freq)
     dt = compute_dt(dx)
