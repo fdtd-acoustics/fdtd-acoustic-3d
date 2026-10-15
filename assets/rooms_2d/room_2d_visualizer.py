@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 
 RASTERIZED_FOLDER = 'rasterized_rooms'
 IMAGES_FOLDER = 'room_images'
-
-
 def visualize_and_save_rooms():
     if not os.path.exists(RASTERIZED_FOLDER):
         print(f"Folder {RASTERIZED_FOLDER} does not exist. Generate rooms first.")
@@ -24,6 +22,7 @@ def visualize_and_save_rooms():
         data = np.load(filepath, allow_pickle=True)
         grid = data['material_core']
         dx = data['dx'].item()
+        nx, ny = grid.shape
 
         src_data = data['sources'] if 'sources' in data else []
         sources = src_data.tolist() if isinstance(src_data, np.ndarray) else src_data
@@ -35,19 +34,36 @@ def visualize_and_save_rooms():
         foam_slots = slot_data.tolist() if isinstance(slot_data, np.ndarray) else slot_data
 
         plt.figure(figsize=(6, 6))
-        plt.imshow(grid, cmap='Set1', origin='lower')
+        plt.imshow(grid.T, cmap='Set1', origin='lower')
+
+        grid_center_x = (nx - 1.0) / 2.0
+        grid_center_y = (ny - 1.0) / 2.0
 
         # Speakers
         if sources:
             src = sources[0]
-            src_x = src['position'][0] / dx
-            src_y = src['position'][1] / dx
+            coords_src_x = src['coords'][0]
+            coords_src_y = src['coords'][1]
+
+            src_x = coords_src_x / dx + grid_center_x
+            src_y = coords_src_y / dx + grid_center_y
+
             plt.scatter(src_x, src_y, color='yellow', marker='*', s=128, label='Source', zorder=5)
 
         # Microphones
         if receivers:
-            rec_x = [r['position'][0] / dx for r in receivers]
-            rec_y = [r['position'][1] / dx for r in receivers]
+            rec_x = []
+            rec_y = []
+            for r in receivers:
+                coords_rec_x = r['coords'][0]
+                coords_rec_y = r['coords'][1]
+
+                rx = coords_rec_x / dx + grid_center_x
+                ry = coords_rec_y / dx + grid_center_y
+
+                rec_x.append(rx)
+                rec_y.append(ry)
+
             plt.scatter(rec_x, rec_y, color='blue', marker='o', s=64, label='Receivers', zorder=4)
 
             # Microphone numbers

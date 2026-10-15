@@ -11,8 +11,20 @@ NODES_PER_WAVELENGTH = 10
 SAFETY_FACTOR = 0.95
 
 PML_THICK = 10
-ALPHA_MAX = 5.0
+ALPHA_MAX = 0.15
 RECORD_TIME = 0.5 # tymczasowo, trzeba bedzie zrobic to z zewnatrz mysle
+
+def to_centered_coords(x_m, y_m, nx, ny, dx):
+    voxel_x = int(round(x_m / dx))
+    voxel_y = int(round(y_m / dx))
+
+    grid_center_x = (nx - 1.0) / 2.0
+    grid_center_y = (ny - 1.0) / 2.0
+
+    centered_x_m = (voxel_x - grid_center_x) * dx
+    centered_y_m = (voxel_y - grid_center_y) * dx
+
+    return round(float(centered_x_m), 6), round(float(centered_y_m), 6)
 
 def rasterize_room(json_filepath, dx):
     with open(json_filepath, "r", encoding="utf-8") as f:
@@ -27,7 +39,7 @@ def rasterize_room(json_filepath, dx):
     grid_w = int(np.ceil(max_width_m / dx)) + WALL_WIDTH
     grid_h = int(np.ceil(max_height_m / dx)) + WALL_WIDTH
 
-    grid = np.ones((grid_h, grid_w), dtype=np.int8) * material_id
+    grid = np.ones((grid_w, grid_h), dtype=np.int8) * material_id
 
     if room_shape == "L-shape":
         w2 = vertices[1][0]
@@ -40,11 +52,11 @@ def rasterize_room(json_filepath, dx):
 
         w1_cells = int(round(w1 / dx))
         h1_cells = int(round(h1 / dx))
-        grid[y_idx: y_idx + h1_cells, x_idx: x_idx + w1_cells] = 0
+        grid[x_idx: x_idx + w1_cells, y_idx: y_idx + h1_cells] = 0
 
         w2_cells = int(round(w2 / dx))
         h2_cells = int(round(h2 / dx))
-        grid[y_idx: y_idx + h2_cells, x_idx: x_idx + w2_cells] = 0  # 0 to AIR
+        grid[x_idx: x_idx + w2_cells, y_idx: y_idx + h2_cells] = 0  # 0 to AIR
 
     else:
         raise NotImplementedError(f"Room Shape: '{room_shape}' not implemented.")
@@ -83,10 +95,13 @@ def rasterize_all_rooms(dx, dt, max_freq):
 
         grid, source_json, mics_json, foam_slots_grid = rasterize_room(json_path, dx=dx)
 
+        nx, ny = grid.shape
+        src_cx, src_cy = to_centered_coords(source_json["x_m"], source_json["y_m"], nx, ny, dx)
+
         sources_data = [
             {
                 "name": "source_main",
-                "position": (source_json["x_m"], source_json["y_m"], 0.0),
+                "coords": (src_cx, src_cy),
                 "time": 0.5,
                 "waveform": {
                     "type": "Gauss",
@@ -102,12 +117,12 @@ def rasterize_all_rooms(dx, dt, max_freq):
         receivers_data = [
             {
                 "name": f"mic_{idx}",
-                "position": (mic["x_m"], mic["y_m"], 0.0)
+                "coords": list(to_centered_coords(mic["x_m"], mic["y_m"], nx, ny, dx))
             }
             for idx, mic in enumerate(mics_json)
         ]
 
-        ny, nx = grid.shape
+        nx , ny = grid.shape
 
         base_name = os.path.splitext(filename)[0]
         output_npz_path = os.path.join(OUTPUT_FOLDER, f"{base_name}.npz")
