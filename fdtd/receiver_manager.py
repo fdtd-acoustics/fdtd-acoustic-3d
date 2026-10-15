@@ -65,22 +65,18 @@ class ReceiverManager:
             dim = dim,
         )
 
-        for r in receivers:
-            name = r.get('name', f"mic_{manager.count[None] + 1}")
+        for idx, rec in enumerate(receivers):
+            coords = rec.get('coords')
 
-            x_val = r.get('x')
-            y_val = r.get('y')
-            z_val = r.get('z')
+            if coords is None or len(coords) != dim:
+                raise ValueError(f"Missing or invalid coordinates for source at index {idx}. Expected {dim} coords, got {coords}")
 
-            if x_val is None or y_val is None or (dim == 3 and z_val is None):
-                raise ValueError(f"Missing required coordinates for receiver '{name}' in {dim}D mode")
-
-            rec_x = int(x_val) + pml_thick
-            rec_y = int(y_val) + pml_thick
-            rec_z = int(z_val) + pml_thick if dim == 3 else None
+            rec_x = int(coords[0]) + pml_thick
+            rec_y = int(coords[1]) + pml_thick
+            rec_z = int(coords[2]) + pml_thick if dim == 3 else None
 
             manager.add_receiver(
-                name = name,
+                name = rec.get('name', f"mic_{idx + 1}"),
                 x = rec_x,
                 y = rec_y,
                 z = rec_z
@@ -100,6 +96,7 @@ class ReceiverManager:
             return {}
         full_history = self.history.to_numpy()
         result: dict[str, np.ndarray] = {}
+        positions_np = self.pos.to_numpy()
 
         global_max = None
         if use_global_normalization:
@@ -116,12 +113,17 @@ class ReceiverManager:
 
         for i in range(self.count[None]):
             name = self.names[i]
+            pos = positions_np[i]
             data = full_history[i, :]
+
+            coords_str = f"({', '.join(map(str, pos))})"
+            display_name = f"{name} {coords_str}"
+
             self.save_to_wav(name, data, global_max=global_max)
             if self._save_plots:
-                save_plot(name, data, self.dt, directory, global_max=global_max)
-                save_spl_plot(name, data, self.dt, directory, global_max=global_max)
-                save_fft_plot(name, data, self.dt, directory)
+                save_plot(display_name, data, self.dt, directory, global_max=global_max)
+                save_spl_plot(display_name, data, self.dt, directory, global_max=global_max)
+                save_fft_plot(display_name, data, self.dt, directory)
             result[name] = data
         self.saved = 1
         return result

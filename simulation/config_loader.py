@@ -102,7 +102,7 @@ def _validate_sources(raw: list, base_dir: Path, record_time: float) -> list[dic
     for i, src in enumerate(raw):
         if not isinstance(src, dict):
             raise ConfigError(f"sources[{i}] must be a mapping")
-        position = _validate_position(src.get("position"), f"sources[{i}].position")
+        coords = _validate_position(src.get("coords"), f"sources[{i}].coords")
         waveform = _validate_waveform(src.get("waveform"), base_dir, f"sources[{i}].waveform")
         emit_time = float(src.get("time", record_time))
         if emit_time <= 0:
@@ -111,7 +111,7 @@ def _validate_sources(raw: list, base_dir: Path, record_time: float) -> list[dic
             raise ConfigError(
                 f"sources[{i}].time ({emit_time}s) exceeds scene.record_time ({record_time}s)"
             )
-        out.append({"position": position, "waveform": waveform, "time": emit_time})
+        out.append({"coords": coords, "waveform": waveform, "time": emit_time})
     return out
 
 
@@ -162,8 +162,8 @@ def _validate_receivers(raw: list) -> list[dict]:
         if name in seen_names:
             raise ConfigError(f"receivers[{i}].name '{name}' duplicates an earlier receiver")
         seen_names.add(name)
-        position = _validate_position(rec.get("position"), f"receivers[{i}].position")
-        out.append({"name": name, "position": position})
+        coords = _validate_position(rec.get("coords"), f"receivers[{i}].coords")
+        out.append({"name": name, "coords": coords})
     return out
 
 

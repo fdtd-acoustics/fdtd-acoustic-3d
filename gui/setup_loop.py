@@ -91,7 +91,7 @@ class SetupLoop():
             x = self._grid.Nx // 2
             y = self._grid.Ny // 2
             z = self._grid.Nz // 2
-            new_mic = {"name": f"mic_{self._microphone_id}", "x": x, "y": y, "z": z}
+            new_mic = {"name": f"mic_{self._microphone_id}", "coords": [x, y, z]}
             self._microphone_id += 1
             self._microphones.append(new_mic)
             self._edit_type = "MIC"
@@ -126,7 +126,8 @@ class SetupLoop():
             setup_vis["mics_pos"][i] = ti.Vector([-10000, -10000, -10000])
 
         for i, mic in enumerate(self._microphones):
-            setup_vis["mics_pos"][i] = ti.Vector([mic['x'], mic['y'], mic['z']])
+            coords = mic['coords']
+            setup_vis["mics_pos"][i] = ti.Vector([coords[0], coords[1], coords[2]])
 
     def _gui_draw_editor(self, gui, setup_vis):
         if self._edit_type is None:
@@ -150,10 +151,12 @@ class SetupLoop():
             m = self._microphones[self._edit_index]
             gui.text(f"Configuring: {m['name']}")
 
-            m['x'] = gui.slider_int("Mic X", m['x'], 0, self._grid.Nx - 1)
-            m['y'] = gui.slider_int("Mic Y", m['y'], 0, self._grid.Ny - 1)
-            m['z'] = gui.slider_int("Mic Z", m['z'], 0, self._grid.Nz - 1)
+            c = list(m.get('coords', (self._grid.Nx // 2, self._grid.Ny // 2, self._grid.Nz // 2)))
+            c[0] = gui.slider_int("Mic X", int(c[0]), 0, self._grid.Nx - 1)
+            c[1] = gui.slider_int("Mic Y", int(c[1]), 0, self._grid.Ny - 1)
+            c[2] = gui.slider_int("Mic Z", int(c[2]), 0, self._grid.Nz - 1)
 
-            setup_vis["mics_pos"][self._edit_index] = ti.Vector([m['x'], m['y'], m['z']])
+            m['coords'] = tuple(c)
+            setup_vis["mics_pos"][self._edit_index] = ti.Vector([c[0], c[1], c[2]])
 
         gui.text("")

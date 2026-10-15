@@ -252,7 +252,7 @@ class HeadlessRunner:
                     np.zeros(total_steps - emit_steps, dtype=np.float32),
                 ])
             waveform_array = np.ascontiguousarray(waveform_array, dtype=np.float32)
-            coords = _world_to_voxel(src["position"], grid_inner, dx)
+            coords = _world_to_voxel(src["coords"], grid_inner, dx)
 
             x_val = coords[0] + pml_thick
             y_val = coords[1] + pml_thick
@@ -288,7 +288,7 @@ class HeadlessRunner:
             dim=dim
         )
         for rec in receivers:
-            coords = _world_to_voxel(rec["position"], grid_inner, dx)
+            coords = _world_to_voxel(rec["coords"], grid_inner, dx)
 
             x_val = coords[0] + pml_thick
             y_val = coords[1] + pml_thick
@@ -353,7 +353,7 @@ class HeadlessRunner:
             "sources": [
                 {
                     "index": i,
-                    "position": list(src["position"]),
+                    "coords": list(src["coords"]),
                     "waveform_type": src["waveform"]["type"],
                     "waveform": src["waveform"],
                 }
@@ -363,7 +363,7 @@ class HeadlessRunner:
                 {
                     "index": i,
                     "name": rec["name"],
-                    "position": list(rec["position"]),
+                    "coords": list(rec["coords"]),
                     "file": f"{rec['name']}.wav",
                 }
                 for i, rec in enumerate(receivers)
@@ -385,8 +385,15 @@ def _world_to_voxel(
     """Convert room-centered meters to voxel indices.
     """
     pos = np.asarray(position_m, dtype=np.float64)
-    grid_center = (np.asarray(grid_inner, dtype=np.float64) - 1.0) / 2.0
+
+    ndim = len(pos)
+    grid_inner_trimmed = np.asarray(grid_inner[:ndim], dtype=np.float64)
+
+    grid_center = (grid_inner_trimmed - 1.0) / 2.0
     idx = np.floor(pos / dx + grid_center + 0.5).astype(int)
+
+    if len(pos) == 2:
+        return int(idx[0]), int(idx[1])
     return int(idx[0]), int(idx[1]), int(idx[2])
 
 
