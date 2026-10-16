@@ -26,6 +26,7 @@ from .simulation_config import SimulationConfig
 class RunResult:
     output_dir: Path
     audio: dict[str, np.ndarray]
+    raw_pressures: np.ndarray | None
     sample_rate: int
     metadata: dict
     config: dict
@@ -43,51 +44,52 @@ class HeadlessRunner:
         return cls(cfg)
 
     @classmethod
-    def from_dict(cls, cfg: dict, overrides: dict | None = None) -> "HeadlessRunner":
-        normalized = validate_config(cfg)
-        if overrides:
-            normalized = _apply_overrides(normalized, overrides)
-        return cls(normalized)
+    def from_npz(cls, path: str | Path, overrides: dict | None = None) -> "HeadlessRunner":
+        with np.load(path, allow_pickle=True) as data:
+            loaded_dict = dict(data)
+        return cls.from_data(loaded_dict, overrides=overrides, npz_path=str(path))
 
     @classmethod
-    def from_npz(cls, path: str | Path, overrides: dict | None = None ) -> "HeadlessRunner":
-        with np.load(path, allow_pickle=True) as data:
-            sources_list = data['sources'].tolist()
-            receivers_list = data['receivers'].tolist()
+    def from_data(cls, data: dict, overrides: dict | None = None, npz_path: str = "in_memory",) -> "HeadlessRunner":
+        sources_list = data['sources'].tolist()
+        receivers_list = data['receivers'].tolist()
 
-            cfg = {
-                "scene": {
-                    "obj_file": str(data['obj_filepath']),
-                    "pml_thickness": int(data['pml_thick']),
-                    "alpha_max": float(data['alpha_max']),
-                    "record_time": float(data['record_time']),
-                },
-                "physics": {
-                    "sound_speed": float(data['sound_speed']),
-                    "nodes_per_wavelength": float(data['nodes_per_wavelength']),
-                    "safety_factor": float(data['safety_factor']),
-                },
-                "sources": sources_list,
-                "receivers": receivers_list,
-                "run": {
-                    "save_plots": True,
-                    "output": "output/runs/"
-                },
+        cfg = {
+            "scene": {
+                "obj_file": str(data.get('obj_filepath', 'in_memory')),
+                "pml_thickness": int(data['pml_thick']),
+                "alpha_max": float(data['alpha_max']),
+                "record_time": float(data['record_time']),
+            },
+            "physics": {
+                "sound_speed": float(data['sound_speed']),
+                "nodes_per_wavelength": float(data['nodes_per_wavelength']),
+                "safety_factor": float(data['safety_factor']),
+            },
+            "sources": sources_list,
+            "receivers": receivers_list,
+            "run": {
+                "save_plots": True,
+                "output": "output/runs/"
+            },
 
-                "_is_npz": True,
-                "_npz_path": str(path),
-                "_grid_params": {
-                    "dx": float(data['dx']),
-                    "dt": float(data['dt']),
-                    "Nx": int(data['Nx']),
-                    "Ny": int(data['Ny']),
-                    "Nz": int(data['Nz']),
-                }
+            "_is_npz": True,
+            "_npz_path": str(npz_path),
+            "_grid_params": {
+                "dx": float(data['dx']),
+                "dt": float(data['dt']),
+                "Nx": int(data['Nx']),
+                "Ny": int(data['Ny']),
+                "Nz": int(data['Nz']),
             }
+        }
 
-            if overrides:
-                cfg = _apply_overrides(cfg, overrides)
-            return cls(cfg)
+        if overrides:
+            cfg = _apply_overrides(cfg, overrides)
+
+        runner = cls(cfg)
+        runner._raw_data = data
+        return runner
 
     def run(
         self,
@@ -125,8 +127,11 @@ class HeadlessRunner:
 
             builder = SimulationBuilder(sim_config)
             if is_npz_mode:
-                with np.load(cfg["_npz_path"], allow_pickle=True) as data:
-                    loaded_data = dict(data)
+                if hasattr(self, "_raw_data") and self._raw_data is not None:
+                    loaded_data = self._raw_data
+                else:
+                    with np.load(cfg["_npz_path"], allow_pickle=True) as data:
+                        loaded_data = dict(data)
 
                 grid = builder.grid_from_data(loaded_data)
 
@@ -163,6 +168,8 @@ class HeadlessRunner:
 
             wall_clock_start = time.perf_counter()
             self._run_loop(fdtd_sim, total_steps, progress)
+            raw_pressures = receiver_manager.get_raw_pressures()
+
             audio = receiver_manager.save_all()
             wall_clock_s = time.perf_counter() - wall_clock_start
 
@@ -191,6 +198,7 @@ class HeadlessRunner:
         return RunResult(
             output_dir=out_dir,
             audio=audio,
+            raw_pressures=raw_pressures,
             sample_rate=sample_rate,
             metadata=metadata,
             config=cfg,
@@ -438,3 +446,10 @@ def _parse_path(path: str) -> list:
     if buf:
         parts.append(buf)
     return parts
+
+# mysle ze jest lepsze miejsce na tą funkcje niz tu, ale no trzeba by bylo w ogole zając sie struktura projektu
+def simulate_2d(data: dict, save_plots: bool = False) -> np.ndarray:
+    runner = HeadlessRunner.from_data(data)
+    result = runner.run(save_plots=save_plots, progress=False, dim=2)
+
+    return result.raw_pressures

@@ -128,6 +128,12 @@ class ReceiverManager:
         self.saved = 1
         return result
 
+    def get_raw_pressures(self) -> np.ndarray:
+        num_mics = self.count[None]
+        full_history = self.history.to_numpy()
+
+        return full_history[:num_mics, :]
+
     @ti.kernel
     def record_step_kernel(self, p_field: ti.template(), step: ti.i32):
         for i in range(self.count[None]):
