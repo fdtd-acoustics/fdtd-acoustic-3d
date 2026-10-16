@@ -38,15 +38,20 @@ def is_point_in_l_shape(x, y, w1, h1, w2, h2):
     in_top_block = (0.0 <= x <= w1) and (h2 <= y <= h1)
     return in_bottom_block or in_top_block
 
-def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
-    total_width = round(random.uniform(ROOM_WIDTH_MIN, ROOM_WIDTH_MAX), 1)
-    total_height = round(random.uniform(ROOM_LENGTH_MIN, ROOM_LENGTH_MAX), 1)
+# Example use:
+# generated_room_data = generate_l_shape_room( material_id=1, foam_size=FOAM_SIZE_M, num_mics=NUM_MICS, seed=ROOM_SEED)
 
-    w1 = round(total_width * random.uniform(0.25, 0.75), 1)
+def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, return_dict=True):
+    rng = random.Random(seed)
+
+    total_width = round(rng.uniform(ROOM_WIDTH_MIN, ROOM_WIDTH_MAX), 1)
+    total_height = round(rng.uniform(ROOM_LENGTH_MIN, ROOM_LENGTH_MAX), 1)
+
+    w1 = round(total_width * rng.uniform(0.25, 0.75), 1)
     w2 = total_width
 
     h1 = total_height
-    h2 = round(total_height * random.uniform(0.25, 0.75), 1)
+    h2 = round(total_height * rng.uniform(0.25, 0.75), 1)
 
     vertices = [
         [0.0, 0.0],
@@ -63,8 +68,8 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
     # Speaker position
     speaker = {}
     while True:
-        sx = round(random.uniform(0.3, max_width - 0.3), 2)
-        sy = round(random.uniform(0.3, max_height - 0.3), 2)
+        sx = round(rng.uniform(0.3, max_width - 0.3), 2)
+        sy = round(rng.uniform(0.3, max_height - 0.3), 2)
         if is_point_in_l_shape(sx, sy, w1, h1, w2, h2):
             speaker = {"x_m": sx, "y_m": sy}
             break
@@ -72,10 +77,10 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
     # Microphones
     microphones = []
     while len(microphones) < num_mics:
-        mx = round(random.uniform(0.3, max_width - 0.3), 2)
-        my = round(random.uniform(0.3, max_height - 0.3), 2)
+        mx = round(rng.uniform(0.3, max_width - 0.3), 2)
+        my = round(rng.uniform(0.3, max_height - 0.3), 2)
         if is_point_in_l_shape(mx, my, w1, h1, w2, h2):
-            if [mx, my] != [speaker["x_m"], speaker["y_m"]] and [mx, my] not in microphones:
+            if [mx, my] != [speaker["x_m"], speaker["y_m"]] and {"x_m": mx, "y_m": my} not in microphones:
                 microphones.append({"x_m": mx, "y_m": my})
 
     # Foam Slots
@@ -89,7 +94,6 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
     ]
 
     foam_slots = []
-    #corner_threshold = 0.5
 
     for segment in segments:
         p1 = segment["p1"]
@@ -99,7 +103,7 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
         num_slots_per_segment = int(segment_length // foam_size)
 
         if num_slots_per_segment > 0:
-            offset = (segment_length - (num_slots_per_segment * foam_size))/2.0
+            offset = (segment_length - (num_slots_per_segment * foam_size)) / 2.0
 
             dx = (p2[0] - p1[0]) / segment_length
             dy = (p2[1] - p1[1]) / segment_length
@@ -111,7 +115,6 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
 
             for j in range(num_slots_per_segment):
                 start_dist = offset + j * foam_size
-
                 center_dist = start_dist + (foam_size / 2.0)
 
                 slot_x = round(p1[0] + dx * center_dist, 3)
@@ -131,7 +134,7 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
                     "orientation": orientation_str
                 })
 
-    return Room(
+    room_obj = Room(
         room_shape="L-shape",
         room_material_id=material_id,
         width_m=max_width,
@@ -142,13 +145,17 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3):
         foam_slots=foam_slots
     )
 
+    return room_obj.to_dict() if return_dict else room_obj
 
-def save_room_to_json(room_obj, filename):
+
+def save_room_to_json(room_data, filename):
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     filepath = os.path.join(OUTPUT_FOLDER, filename)
+    
+    data_to_save = room_data if isinstance(room_data, dict) else room_data.to_dict()
 
     with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(room_obj.to_dict(), f, indent=4)
+        json.dump(data_to_save, f, indent=4)
 
     print(f"Saved room: {filepath}")
 
@@ -156,10 +163,10 @@ def save_room_to_json(room_obj, filename):
 if __name__ == "__main__":
     n = int(input("How many rooms to generate? (default 10) ") or 10)
     foam_size = int(input("Size of a single acoustic foam [cm] (default 25) ") or 25)
-    foam_size_m = float(foam_size)/100.0
-    mics_count = int(input("Number of microphones per room (default 5) ") or 3)
+    foam_size_m = float(foam_size) / 100.0
+    mics_count = int(input("Number of microphones per room (default 3) ") or 3)
 
     for i in range(n):
-        my_room = generate_l_shape_room(material_id=1, num_mics=mics_count, foam_size=foam_size_m)
-        save_room_to_json(my_room, filename=f"room_{i}.json")
+        room_dict = generate_l_shape_room(material_id=1, foam_size=foam_size_m, num_mics=mics_count, seed=i)
+        save_room_to_json(room_dict, filename=f"room_{i}.json")
     print(f"Generated {n} rooms.")
