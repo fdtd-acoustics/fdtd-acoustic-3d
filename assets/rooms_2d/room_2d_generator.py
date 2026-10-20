@@ -8,6 +8,9 @@ ROOM_WIDTH_MAX = 8.0
 ROOM_LENGTH_MIN = 2.0
 ROOM_LENGTH_MAX = 8.0
 
+MIN_MIC_SPEAKER_DISTANCE = 1.0  # [M]
+MIC_MAX_ATTEMPTS = 10000
+
 OUTPUT_FOLDER = 'generated_rooms'
 
 class Room:
@@ -76,12 +79,22 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, 
 
     # Microphones
     microphones = []
+    attempts = 0
     while len(microphones) < num_mics:
+        attempts += 1
+        if attempts > MIC_MAX_ATTEMPTS:
+            raise ValueError(
+                f"Could not place {num_mics} microphones at least {MIN_MIC_SPEAKER_DISTANCE} m "
+                f"from the speaker (seed={seed})"
+            )
         mx = round(rng.uniform(0.3, max_width - 0.3), 2)
         my = round(rng.uniform(0.3, max_height - 0.3), 2)
-        if is_point_in_l_shape(mx, my, w1, h1, w2, h2):
-            if [mx, my] != [speaker["x_m"], speaker["y_m"]] and {"x_m": mx, "y_m": my} not in microphones:
-                microphones.append({"x_m": mx, "y_m": my})
+        if not is_point_in_l_shape(mx, my, w1, h1, w2, h2):
+            continue
+        if math.hypot(mx - speaker["x_m"], my - speaker["y_m"]) < MIN_MIC_SPEAKER_DISTANCE:
+            continue
+        if {"x_m": mx, "y_m": my} not in microphones:
+            microphones.append({"x_m": mx, "y_m": my})
 
     # Foam Slots
     segments = [
@@ -131,7 +144,9 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, 
                     "y_m": slot_y,
                     "distance_to_corner": distance_to_corner,
                     "distance_to_speaker": dist_to_speaker,
-                    "orientation": orientation_str
+                    "orientation": orientation_str,
+                    "normal_vector": [nx, ny],
+                    "wall_direction": [dx, dy]
                 })
 
     room_obj = Room(

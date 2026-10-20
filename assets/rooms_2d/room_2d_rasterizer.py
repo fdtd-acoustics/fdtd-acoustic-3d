@@ -41,7 +41,33 @@ def to_centered_coords(x_m, y_m, nx, ny, dx):
 # Example use:
 # rasterized_room_data = rasterize_room_data( generated_room_data, max_freq=MAX_FREQ )
 
-def rasterize_room_data(data, max_freq=1000, obj_filepath="in_memory"):
+def foam_slot_cells(grid, start_x, start_y, normal, wall_dir, foam_size, foam_thickness, dx):
+    nx, ny = int(round(normal[0])), int(round(normal[1]))
+    # if slot is in the wall move it towards center of room
+    if grid[start_x, start_y] != 0:
+        start_x += nx
+        start_y += ny
+    if grid[start_x, start_y] != 0:
+        raise ValueError(f"Foam slot at ({start_x}, {start_y}) is not in front of a wall")
+
+    wall_dir_x, wall_dir_y = int(round(wall_dir[0])), int(round(wall_dir[1]))
+
+    length_cells = max(1, int(round(foam_size / dx)))
+    depth_cells = max(1, int(round(foam_thickness / dx)))
+    first = -(length_cells // 2)
+
+    cells = []
+    for along in range(first, first + length_cells):
+        for depth in range(depth_cells):
+            cx = start_x + along * wall_dir_x + depth * nx
+            cy = start_y + along * wall_dir_y + depth * ny
+            if 0 <= cx < grid.shape[0] and 0 <= cy < grid.shape[1] and grid[cx, cy] == 0:
+                cells.append([cx, cy])
+
+    return start_x, start_y, cells
+
+
+def rasterize_room_data(data, max_freq=1000, obj_filepath="in_memory", foam_size=0.25, foam_thickness=0.05):
 
     dx = compute_dx(max_freq)
     dt = compute_dt(dx)
@@ -81,12 +107,26 @@ def rasterize_room_data(data, max_freq=1000, obj_filepath="in_memory"):
 
     foam_slots_grid = []
     for slot in data["foam_slots"]:
+        grid_x, grid_y, cells = foam_slot_cells(
+            grid,
+            int(round(slot["x_m"] / dx)) + 1,
+            int(round(slot["y_m"] / dx)) + 1,
+            slot["normal_vector"],
+            slot["wall_direction"],
+            foam_size,
+            foam_thickness,
+            dx
+        )
         foam_slots_grid.append({
-            "grid_x": int(round(slot["x_m"] / dx)) + 1,
-            "grid_y": int(round(slot["y_m"] / dx)) + 1,
-            "distance_to_corner": slot["distance_to_corner"],
-            "distance_to_speaker": slot["distance_to_speaker"],
-            "orientation": slot["orientation"]
+            "grid_x": grid_x,
+            "grid_y": grid_y,
+            "cells": cells,
+            "features": {
+                "distance_to_corner": slot["distance_to_corner"],
+                "distance_to_speaker": slot["distance_to_speaker"],
+                "orientation": slot["orientation"],
+                "normal_vector": slot["normal_vector"]
+            },
         })
 
     nx, ny = grid.shape

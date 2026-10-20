@@ -24,7 +24,7 @@ from .simulation_config import SimulationConfig
 
 @dataclass
 class RunResult:
-    output_dir: Path
+    output_dir: Path | None
     audio: dict[str, np.ndarray]
     raw_pressures: np.ndarray | None
     sample_rate: int
@@ -97,6 +97,7 @@ class HeadlessRunner:
         save_plots: bool | None = None,
         progress: bool = True,
         dim: int = 3,
+        write_files: bool = True,
     ) -> RunResult:
         cfg = self._cfg
         scene = cfg["scene"]
@@ -106,8 +107,13 @@ class HeadlessRunner:
         run_cfg = cfg["run"]
 
         resolved_save_plots = run_cfg["save_plots"] if save_plots is None else save_plots
-        out_dir = self._resolve_output_dir(output_dir, run_cfg)
-        out_dir.mkdir(parents=True, exist_ok=True)
+        if not write_files:
+            resolved_save_plots = False
+
+        out_dir = None
+        if write_files:
+            out_dir = self._resolve_output_dir(output_dir, run_cfg)
+            out_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             sim_config = SimulationConfig(
@@ -163,17 +169,19 @@ class HeadlessRunner:
             fdtd_sim = builder.build_fdtd(
                 grid=grid,
                 source_manager=source_manager,
-                receiver_manager=receiver_manager
+                receiver_manager=receiver_manager,
+                data=loaded_data if is_npz_mode else None
             )
 
             wall_clock_start = time.perf_counter()
             self._run_loop(fdtd_sim, total_steps, progress)
             raw_pressures = receiver_manager.get_raw_pressures()
 
-            audio = receiver_manager.save_all()
+            audio = receiver_manager.save_all() if write_files else {}
             wall_clock_s = time.perf_counter() - wall_clock_start
 
-            print(f"Wall clock: {wall_clock_s:.3f} s")
+            if progress:
+                print(f"Wall clock: {wall_clock_s:.3f} s")
 
             sample_rate = int(round(1.0 / grid.dt))
             metadata = self._build_metadata(
@@ -189,10 +197,13 @@ class HeadlessRunner:
                 dim=dim
             )
 
-            self._write_artifacts(out_dir, cfg, metadata)
+            if write_files:
+                self._write_artifacts(out_dir, cfg, metadata)
         except BaseException as exc:
-            failed_dir = self._mark_run_failed(out_dir, cfg, exc)
-            print(f"Run failed. Artifacts moved to: {failed_dir}")
+            print(f"Run failed")
+            if write_files:
+                failed_dir = self._mark_run_failed(out_dir, cfg, exc)
+                print(f"Artifacts moved to: {failed_dir}")
             raise
 
         return RunResult(
@@ -448,8 +459,19 @@ def _parse_path(path: str) -> list:
     return parts
 
 # mysle ze jest lepsze miejsce na tą funkcje niz tu, ale no trzeba by bylo w ogole zając sie struktura projektu
-def simulate_2d(data: dict, save_plots: bool = False) -> np.ndarray:
-    runner = HeadlessRunner.from_data(data)
-    result = runner.run(save_plots=save_plots, progress=False, dim=2)
+FOAM_MATERIAL_ID = 16
 
-    return result.raw_pressures
+
+def simulate_2d(data: dict, foam: list[int] | None = None, save_plots: bool = False) -> RunResult:
+    if foam:
+        material_core = np.array(data['material_core'], copy=True)
+        foam_slots = data['foam_slots']
+        for slot_idx in foam:
+            for cx, cy in foam_slots[slot_idx]['cells']:
+                material_core[cx, cy] = FOAM_MATERIAL_ID
+        data = {**data, 'material_core': material_core}
+
+    runner = HeadlessRunner.from_data(data)
+    result = runner.run(save_plots=save_plots, progress=False, dim=2, write_files=False)
+
+    return result

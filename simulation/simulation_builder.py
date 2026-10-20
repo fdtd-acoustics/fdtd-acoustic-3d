@@ -80,9 +80,9 @@ class SimulationBuilder:
         )
         voxelizer.load_scene()
 
-    def build_fdtd(self, grid: GridParams, source_manager: SourceManager, receiver_manager: ReceiverManager) -> FDTD_Simulation:
+    def build_fdtd(self, grid: GridParams, source_manager: SourceManager, receiver_manager: ReceiverManager, data: dict | None = None) -> FDTD_Simulation:
         """Builds FDTD_Simulation"""
-        material_core = self._prepare_material_core()
+        material_core = self._prepare_material_core(data)
         return FDTD_Simulation(
             sound_speed=self._cfg.sound_speed,
             dx=grid.dx,
@@ -96,11 +96,12 @@ class SimulationBuilder:
             dim=self._cfg.dim
         )
 
-    def _prepare_material_core(self) -> ti.Vector:
-        path = getattr(self._cfg, "_npz_path", self._cfg.npz_filepath)  #TODO tymczasowo, powtarzaja sie sciezki
-
-        with np.load(self._cfg.npz_filepath) as data:
-            matrix = data['material_core'].astype(np.int32)
+    def _prepare_material_core(self, data: dict | None = None) -> ti.Vector:
+        if data is not None:
+            matrix = np.asarray(data['material_core']).astype(np.int32)
+        else:
+            with np.load(self._cfg.npz_filepath) as npz:
+                matrix = npz['material_core'].astype(np.int32)
 
         material_core = ti.Vector.field(2, dtype=ti.f32, shape=matrix.shape)
 
