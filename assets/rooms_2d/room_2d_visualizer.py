@@ -28,7 +28,6 @@ IMAGES_FOLDER = 'visualized_rooms'
 
 
 def _load_material_library():
-    """Wczytuje mapowanie ID -> kolor oraz ID -> nazwa z materials.csv."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     possible_paths = [
@@ -65,9 +64,6 @@ def _load_material_library():
 
 
 def visualize_room_data(data, title="Room Preview", save_path=None, show=False, use_meters: bool = False):
-    """
-    Wizualizacja układu pomieszczenia, źródeł, mikrofonów oraz gniazd pianki (0,0 w lewym dolnym rogu).
-    """
     grid = data['material_core']
     dx = data['dx'].item() if isinstance(data['dx'], np.ndarray) else data['dx']
     nx, ny = grid.shape
@@ -92,7 +88,6 @@ def visualize_room_data(data, title="Room Preview", save_path=None, show=False, 
 
     cmap = mcolors.ListedColormap(colors_list)
 
-    # Fizyczne przesunięcie środka pokoju do lewego dolnego rogu (0,0)
     half_width_m = (nx * dx) / 2.0
     half_height_m = (ny * dx) / 2.0
     grid_center_vox_x = (nx - 1.0) / 2.0
@@ -108,11 +103,9 @@ def visualize_room_data(data, title="Room Preview", save_path=None, show=False, 
         plt.xlabel("X Axis (voxels)")
         plt.ylabel("Y Axis (voxels)")
 
-    # Źródło dźwięku (Czerwona gwiazdka)
     if sources:
         src = sources[0]
         if use_meters:
-            # Przesunięcie ze współrzędnych środkowych (0,0 w centrum) do lewego dolnego rogu (0,0 w rogu)
             sx = src['coords'][0] + half_width_m
             sy = src['coords'][1] + half_height_m
         else:
@@ -120,7 +113,6 @@ def visualize_room_data(data, title="Room Preview", save_path=None, show=False, 
             sy = src['coords'][1] / dx + grid_center_vox_y
         plt.scatter(sx, sy, color='red', marker='*', s=128, label='Source', zorder=5)
 
-    # Mikrofony
     if receivers:
         rec_x, rec_y = [], []
         for r in receivers:
@@ -134,10 +126,8 @@ def visualize_room_data(data, title="Room Preview", save_path=None, show=False, 
             rec_y.append(ry)
         plt.scatter(rec_x, rec_y, color='blue', marker='o', s=64, label='Receivers', zorder=4)
         for i, (x, y) in enumerate(zip(rec_x, rec_y)):
-            plt.annotate(str(i), (x, y), color='white', fontweight='bold', fontsize=6, ha='center', va='center',
-                         zorder=6)
+            plt.annotate(str(i), (x, y), color='white', fontweight='bold', fontsize=6, ha='center', va='center', zorder=6)
 
-    # Gniazda pianek (Foam Slots)
     if foam_slots:
         slot_x, slot_y = [], []
         for s in foam_slots:
@@ -151,7 +141,6 @@ def visualize_room_data(data, title="Room Preview", save_path=None, show=False, 
 
     plt.title(title)
 
-    # Legenda boczna
     handles, labels = plt.gca().get_legend_handles_labels()
     for uid in unique_ids:
         mat_name = id_to_name.get(uid, f"Material {uid}")
@@ -173,14 +162,18 @@ def visualize_room_data(data, title="Room Preview", save_path=None, show=False, 
     plt.close()
 
 
-def visualize_simulation_grid(data, title="Simulation Grid Preview", save_path=None, show=False,
-                              use_meters: bool = False):
-    """
-    Wizualizacja siatki symulacyjnej (pokazuje materiały, źródło i mikrofony, BEZ gniazd pianek).
-    """
+def visualize_simulation_grid(data, title="Simulation Grid Preview", save_path=None, show=False, use_meters: bool = False, chosen_foams=None):
     grid = data['material_core']
     dx = data['dx'].item() if isinstance(data['dx'], np.ndarray) else data['dx']
     nx, ny = grid.shape
+
+    if chosen_foams is not None and 'foam_slots' in data:
+        grid = np.array(grid, copy=True)
+        foam_slots_data = data['foam_slots']
+        for slot_idx in chosen_foams:
+            if slot_idx < len(foam_slots_data):
+                for cx, cy in foam_slots_data[slot_idx]['cells']:
+                    grid[cx, cy] = 16
 
     src_data = data['sources'] if 'sources' in data else []
     sources = src_data.tolist() if isinstance(src_data, np.ndarray) else src_data
@@ -214,7 +207,6 @@ def visualize_simulation_grid(data, title="Simulation Grid Preview", save_path=N
         plt.xlabel("X Axis (voxels)")
         plt.ylabel("Y Axis (voxels)")
 
-    # Źródło dźwięku (Czerwona gwiazdka)
     if sources:
         src = sources[0]
         if use_meters:
@@ -225,7 +217,6 @@ def visualize_simulation_grid(data, title="Simulation Grid Preview", save_path=N
             sy = src['coords'][1] / dx + grid_center_vox_y
         plt.scatter(sx, sy, color='red', marker='*', s=128, label='Source', zorder=5)
 
-    # Mikrofony
     if receivers:
         rec_x, rec_y = [], []
         for r in receivers:
@@ -239,18 +230,15 @@ def visualize_simulation_grid(data, title="Simulation Grid Preview", save_path=N
             rec_y.append(ry)
         plt.scatter(rec_x, rec_y, color='blue', marker='o', s=64, label='Receivers', zorder=4)
         for i, (x, y) in enumerate(zip(rec_x, rec_y)):
-            plt.annotate(str(i), (x, y), color='white', fontweight='bold', fontsize=6, ha='center', va='center',
-                         zorder=6)
+            plt.annotate(str(i), (x, y), color='white', fontweight='bold', fontsize=6, ha='center', va='center', zorder=6)
 
     plt.title(title)
 
-    # Legenda boczna
     handles, labels = plt.gca().get_legend_handles_labels()
     for uid in unique_ids:
         mat_name = id_to_name.get(uid, f"Material {uid}")
         hex_color = id_to_color.get(uid, '#888888')
-        patch = plt.Line2D([0], [0], marker='s', color='w', markerfacecolor=hex_color, markersize=8,
-                           label=f"{uid}: {mat_name}")
+        patch = plt.Line2D([0], [0], marker='s', color='w', markerfacecolor=hex_color, markersize=8, label=f"{uid}: {mat_name}")
         handles.append(patch)
 
     plt.legend(handles=handles, loc='center left', bbox_to_anchor=(1.02, 0.5), fontsize=8)
