@@ -26,17 +26,17 @@ This project is a computer application that simulates and visualizes how sound w
 ## Demo
 
 <div align="center">
-  <img src="assets/image_0.png" alt="FDTD Simulation" width="600"/>
+  <img src="assets/readme_images/image_0.png" alt="FDTD Simulation" width="600"/>
   <p><i>Visualization and GUI (Example 1)</i></p>
 </div>
 
 <div align="center">
-  <img src="assets/image_1.png" alt="Voxelized Environment" width="600"/>
+  <img src="assets/readme_images/image_1.png" alt="Voxelized Environment" width="600"/>
   <p><i>Voxelized 3D environment</i></p>
 </div>
 
 <div align="center">
-  <img src="assets/image_2.png" alt="FDTD Simulation" width="600"/>
+  <img src="assets/readme_images/image_2.png" alt="FDTD Simulation" width="600"/>
   <p><i>Visualization and GUI (Example 2)</i></p>
 </div>
 
