@@ -13,10 +13,10 @@ physics:
 
 sources:
   - position: [-0.1544, -0.6517, 4.7849]
-    time: 8.0
+    time: 1.0
     waveform:
       type: Custom
-      filepath: ../../assets/audio/grecki_4k_10s.wav
+      filepath: ../../assets/audio/test_audio.wav
 
 receivers:
   - name: mic_1

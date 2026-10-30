@@ -15,4 +15,4 @@ id,name,alpha,density,color
 13,audience_on_timber_seats,0.62,500.0,#ff8f00
 14,glass_window,0.1,2500.0,#b3e5fc
 15,metal,0.02,7800.0,#b0bec5
-16,acoustic_foam,0.85,40.0,#37474f
+16,acoustic_foam,0.85,40.0,#008000
