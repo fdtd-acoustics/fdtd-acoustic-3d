@@ -68,9 +68,9 @@ def greedy_baseline(room_seed: int = 0, max_foams: int = 8):
         _, _, _, _, step_info = env.step(best_action)
 
         room_data = env.rasterized_room
-        title_str = f"Greedy - Step {step} (C50={step_info['c50']:.2f}dB)"
-        save_path = f"output/greedy/greedy_seed{room_seed}_foams{step}.png"
-        save_path_m = f"output/greedy/greedy_seed{room_seed}_foams{step}_m.png"
+        title_str = f"Greedy - Foam {step} (C50={step_info['c50']:.2f}dB)"
+        save_path = f"../../output/agent/greedy_baseline/greedy_seed{room_seed}_foams{step}.png"
+        save_path_m = f"../../output/agent/greedy_baseline/greedy_seed{room_seed}_foams{step}_m.png"
 
         visualize_simulation_grid(room_data, title=title_str, save_path=save_path, show=False, use_meters=False, chosen_foams=env.chosen_foams)
         visualize_simulation_grid(room_data, title=title_str, save_path=save_path_m, show=False, use_meters=True, chosen_foams=env.chosen_foams)

@@ -30,17 +30,7 @@ IMAGES_FOLDER = 'visualized_rooms'
 def _load_material_library():
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
-    possible_paths = [
-        os.path.join(current_dir, '..', 'material_library', 'materials.csv'),
-        os.path.join(current_dir, 'materials.csv'),
-        'materials.csv'
-    ]
-
-    csv_path = None
-    for path in possible_paths:
-        if os.path.exists(path):
-            csv_path = path
-            break
+    csv_path = os.path.join(current_dir, '..', 'material_library', 'materials.csv')
 
     id_to_color = {}
     id_to_name = {}
@@ -57,8 +47,8 @@ def _load_material_library():
                     continue
 
     if not id_to_color:
-        id_to_color = {0: '#ffffff', 1: '#a0a0a0', 6: '#d7a26c', 16: '#37474f'}
-        id_to_name = {0: 'air', 1: 'smooth_concrete', 6: 'plywood_panelling', 16: 'acoustic_foam'}
+        print("Wrong path to .csv file")
+
 
     return id_to_color, id_to_name
 
@@ -145,8 +135,7 @@ def visualize_room_data(data, title="Room Preview", save_path=None, show=False, 
     for uid in unique_ids:
         mat_name = id_to_name.get(uid, f"Material {uid}")
         hex_color = id_to_color.get(uid, '#888888')
-        patch = plt.Line2D([0], [0], marker='s', color='w', markerfacecolor=hex_color, markersize=8,
-                           label=f"{uid}: {mat_name}")
+        patch = plt.Line2D([0], [0], marker='s', color='w', markerfacecolor=hex_color, markersize=8, label=f"{uid}: {mat_name}")
         handles.append(patch)
 
     plt.legend(handles=handles, loc='center left', bbox_to_anchor=(1.02, 0.5), fontsize=8)
