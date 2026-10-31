@@ -2,11 +2,11 @@ from room_2d_generator import generate_l_shape_room
 from room_2d_rasterizer import rasterize_room_data
 from room_2d_visualizer import visualize_room_data
 
-ROOM_COUNT = 5
+ROOM_COUNT = 1
 MICROPHONE_COUNT = 3
 FOAM_SIZE = 0.25    # [M]
 MAX_FREQ = 1000     # [Hz]
-VISUALISE = False
+VISUALISE = True
 
 for room_seed in range(ROOM_COUNT):
     generated_room_data = generate_l_shape_room(

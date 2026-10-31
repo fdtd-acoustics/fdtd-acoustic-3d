@@ -9,6 +9,7 @@ ROOM_LENGTH_MIN = 2.0
 ROOM_LENGTH_MAX = 8.0
 
 MIN_MIC_SPEAKER_DISTANCE = 1.0  # [M]
+WALL_MARGIN = 0.3  # [M] speaker and microphones keep this distance from every wall, so foam never covers them
 MIC_MAX_ATTEMPTS = 10000
 
 OUTPUT_FOLDER = 'generated_rooms'
@@ -36,10 +37,11 @@ class Room:
             "foam_slots": self.foam_slots
         }
 
-def is_point_in_l_shape(x, y, w1, h1, w2, h2):
-    in_bottom_block = (0.0 <= x <= w2) and (0.0 <= y <= h2)
-    in_top_block = (0.0 <= x <= w1) and (h2 <= y <= h1)
-    return in_bottom_block or in_top_block
+def is_point_in_l_shape(x, y, w1, h1, w2, h2, margin=0.0):
+    """True if the point lies inside the L-shape at least `margin` from every wall (inner corner walls included)."""
+    in_bottom_block = (margin <= x <= w2 - margin) and (margin <= y <= h2 - margin)
+    in_left_block = (margin <= x <= w1 - margin) and (margin <= y <= h1 - margin)
+    return in_bottom_block or in_left_block
 
 # Example use:
 # generated_room_data = generate_l_shape_room( material_id=1, foam_size=FOAM_SIZE_M, num_mics=NUM_MICS, seed=ROOM_SEED)
@@ -70,10 +72,12 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, 
 
     # Speaker position
     speaker = {}
-    while True:
-        sx = round(rng.uniform(0.3, max_width - 0.3), 2)
-        sy = round(rng.uniform(0.3, max_height - 0.3), 2)
-        if is_point_in_l_shape(sx, sy, w1, h1, w2, h2):
+    for attempt in range(MIC_MAX_ATTEMPTS + 1):
+        if attempt == MIC_MAX_ATTEMPTS:
+            raise ValueError(f"No place for the speaker {WALL_MARGIN} m from the walls (seed={seed})")
+        sx = round(rng.uniform(WALL_MARGIN, max_width - WALL_MARGIN), 2)
+        sy = round(rng.uniform(WALL_MARGIN, max_height - WALL_MARGIN), 2)
+        if is_point_in_l_shape(sx, sy, w1, h1, w2, h2, margin=WALL_MARGIN):
             speaker = {"x_m": sx, "y_m": sy}
             break
 
@@ -87,9 +91,9 @@ def generate_l_shape_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, 
                 f"Could not place {num_mics} microphones at least {MIN_MIC_SPEAKER_DISTANCE} m "
                 f"from the speaker (seed={seed})"
             )
-        mx = round(rng.uniform(0.3, max_width - 0.3), 2)
-        my = round(rng.uniform(0.3, max_height - 0.3), 2)
-        if not is_point_in_l_shape(mx, my, w1, h1, w2, h2):
+        mx = round(rng.uniform(WALL_MARGIN, max_width - WALL_MARGIN), 2)
+        my = round(rng.uniform(WALL_MARGIN, max_height - WALL_MARGIN), 2)
+        if not is_point_in_l_shape(mx, my, w1, h1, w2, h2, margin=WALL_MARGIN):
             continue
         if math.hypot(mx - speaker["x_m"], my - speaker["y_m"]) < MIN_MIC_SPEAKER_DISTANCE:
             continue

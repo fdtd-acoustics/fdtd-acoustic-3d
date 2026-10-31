@@ -7,8 +7,9 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
 
 from agent.foam_env import FoamEnv
+from agent.slot_policy import SlotPolicy
 
-MATERIAL_ID = 6
+MATERIAL_ID = 5  # wood_50mm_thick: empty rooms start below the C50 target
 FOAM_SIZE = 0.25 # [M]
 MIC_COUNT = 3
 MAX_FREQ = 1000
@@ -17,13 +18,13 @@ OUTPUT_DIR = Path("output/agent")
 
 def make_env() -> Monitor:
     env = FoamEnv(material=MATERIAL_ID, foam_size=FOAM_SIZE, mic_count=MIC_COUNT, max_freq=MAX_FREQ)
-    # Monitor logs episode reward
-    return Monitor(env, filename=str(OUTPUT_DIR / "monitor"))
+    # Monitor logs episode reward and length (= foams used), plus success flag
+    return Monitor(env, filename=str(OUTPUT_DIR / "monitor"), info_keywords=("success",))
 
 
 def main():
     parser = argparse.ArgumentParser(description="Train MaskablePPO agent for foam placement")
-    parser.add_argument("--steps", type=int, default=50_000, help="Total agent steps (1 step = 1 simulation)")
+    parser.add_argument("--steps", type=int, default=5_000, help="Total agent steps (1 step = 1 simulation)")
     parser.add_argument("--resume", type=Path, default=None, help="Path to a saved model .zip to continue from")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
@@ -37,7 +38,7 @@ def main():
         model = MaskablePPO.load(args.resume, env=env, device="cpu")
     else:
         model = MaskablePPO(
-            "MlpPolicy",
+            SlotPolicy,
             env,
             n_steps=256,
             batch_size=64,

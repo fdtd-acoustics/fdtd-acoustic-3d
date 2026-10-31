@@ -12,7 +12,7 @@ SAFETY_FACTOR = 0.95
 
 PML_THICK = 10
 ALPHA_MAX = 0.15
-RECORD_TIME = 0.5 # tymczasowo, trzeba bedzie zrobic to z zewnatrz mysle
+RECORD_TIME = 0.8  # [s] must cover the whole reverb decay for C50
 
 
 def compute_dx(max_freq):
@@ -67,7 +67,8 @@ def foam_slot_cells(grid, start_x, start_y, normal, wall_dir, foam_size, foam_th
     return start_x, start_y, cells
 
 
-def rasterize_room_data(data, max_freq=1000, obj_filepath="in_memory", foam_size=0.25, foam_thickness=0.05):
+def rasterize_room_data(data, max_freq=1000, obj_filepath="in_memory", foam_size=0.25, foam_thickness=0.05,
+                        record_time=RECORD_TIME):
 
     dx = compute_dx(max_freq)
     dt = compute_dt(dx)
@@ -168,7 +169,7 @@ def rasterize_room_data(data, max_freq=1000, obj_filepath="in_memory", foam_size
         "sound_speed": SOUND_SPEED,
         "nodes_per_wavelength": NODES_PER_WAVELENGTH,
         "safety_factor": SAFETY_FACTOR,
-        "record_time": RECORD_TIME,
+        "record_time": record_time,
         "obj_filepath": obj_filepath,
         "sources": np.array(sources_data, dtype=object),
         "receivers": np.array(receivers_data, dtype=object),
