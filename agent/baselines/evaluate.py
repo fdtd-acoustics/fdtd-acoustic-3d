@@ -251,10 +251,9 @@ def main():
 
         res_ppo = run_ppo_agent(env, model, room_seed, args.max_foams, pbar_desc=f"  [PPO Agent]")
         res_rand = run_random_baseline(env, room_seed, args.max_foams, pbar_desc=f"  [Random]")
-        #res_greedy = run_greedy_baseline(env, room_seed, args.max_foams, pbar_desc=f"  [Greedy]")
+        res_greedy = run_greedy_baseline(env, room_seed, args.max_foams, pbar_desc=f"  [Greedy]")
 
-        #all_results.extend([res_rand, res_greedy, res_ppo])
-        all_results.extend([res_rand, res_ppo])
+        all_results.extend([res_rand, res_greedy, res_ppo])
 
     export_results(all_results, OUTPUT_DIR)
 
