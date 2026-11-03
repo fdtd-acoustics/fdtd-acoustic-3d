@@ -8,14 +8,20 @@ ROOM_WIDTH_MAX = 8.0
 ROOM_LENGTH_MIN = 4.0
 ROOM_LENGTH_MAX = 8.0
 
-MIN_MIC_SPEAKER_DISTANCE = 1.0  # [m]
+MIN_MIC_SPEAKER_DISTANCE = 1.0      # [m]
+MIN_MIC_MIC_DISTANCE = 0.8          # [m]
+MIN_MIC_FOAM_DISTANCE = 0.4         # [m]
+MIN_SPEAKER_FOAM_DISTANCE = 0.4     # [m]
+
 WALL_MARGIN = 0.3  # [m]
 MIC_MAX_ATTEMPTS = 10000
 
 OUTPUT_FOLDER = 'generated_rooms'
 
+
 class Room:
-    def __init__(self, room_shape, room_material_id, width_m, height_m, room_vertices, speaker, microphones, foam_slots):
+    def __init__(self, room_shape, room_material_id, width_m, height_m, room_vertices, speaker, microphones,
+                 foam_slots):
         self.room_shape = room_shape
         self.room_material_id = room_material_id
         self.width_m = width_m
@@ -36,6 +42,7 @@ class Room:
             "microphones": self.microphones,
             "foam_slots": self.foam_slots
         }
+
 
 def is_point_in_shape(x, y, shape, params, margin=0.0):
     if shape == "L-shape":
@@ -61,7 +68,8 @@ def is_point_in_shape(x, y, shape, params, margin=0.0):
         W, H, w_block, h_half, overlap = params
         in_bottom = (margin <= x <= w_block - margin) and (margin <= y <= h_half - margin)
         in_top = (W - w_block + margin <= x <= W - margin) and (h_half + margin <= y <= H - margin)
-        in_overlap = (w_block - overlap + margin <= x <= W - w_block + overlap - margin) and (h_half - 0.5 + margin <= y <= h_half + 0.5 - margin)
+        in_overlap = (w_block - overlap + margin <= x <= W - w_block + overlap - margin) and (
+                    h_half - 0.5 + margin <= y <= h_half + 0.5 - margin)
         return in_bottom or in_top or in_overlap
 
     return False
@@ -133,37 +141,25 @@ def generate_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, shape_ty
     max_width = total_width
     max_height = total_height
 
-    speaker = {}
-    for attempt in range(MIC_MAX_ATTEMPTS + 1):
-        if attempt == MIC_MAX_ATTEMPTS:
-            raise ValueError(f"Couldn't place speaker in {shape_type} (seed={seed})")
-        sx = round(rng.uniform(WALL_MARGIN, max_width - WALL_MARGIN), 2)
-        sy = round(rng.uniform(WALL_MARGIN, max_height - WALL_MARGIN), 2)
-        if is_point_in_shape(sx, sy, shape_type, params, margin=WALL_MARGIN):
-            speaker = {"x_m": sx, "y_m": sy}
-            break
-
-    microphones = []
-    attempts = 0
-    while len(microphones) < num_mics:
-        attempts += 1
-        if attempts > MIC_MAX_ATTEMPTS:
-            raise ValueError(f"Couldn't place {num_mics} microphones in {shape_type} (seed={seed})")
-        mx = round(rng.uniform(WALL_MARGIN, max_width - WALL_MARGIN), 2)
-        my = round(rng.uniform(WALL_MARGIN, max_height - WALL_MARGIN), 2)
-        if not is_point_in_shape(mx, my, shape_type, params, margin=WALL_MARGIN):
-            continue
-        if math.hypot(mx - speaker["x_m"], my - speaker["y_m"]) < MIN_MIC_SPEAKER_DISTANCE:
-            continue
-        if {"x_m": mx, "y_m": my} not in microphones:
-            microphones.append({"x_m": mx, "y_m": my})
-
     foam_slots = []
     segments = []
-    for i in range(len(vertices)):
-        p1 = vertices[i]
-        p2 = vertices[(i + 1) % len(vertices)]
-        segments.append({"p1": p1, "p2": p2})
+    if shape_type == "S-shape":
+        top_left_x = W - w_block
+        segments = [
+            {"p1": [0.0, 0.0], "p2": [w_block, 0.0]},
+            {"p1": [w_block, 0.0], "p2": [w_block, h_half]},
+            {"p1": [w_block, h_half], "p2": [W, h_half]},
+            {"p1": [W, h_half], "p2": [W, H]},
+            {"p1": [W, H], "p2": [top_left_x, H]},
+            {"p1": [top_left_x, H], "p2": [top_left_x, h_half]},
+            {"p1": [top_left_x, h_half], "p2": [0.0, h_half]},
+            {"p1": [0.0, h_half], "p2": [0.0, 0.0]}
+        ]
+    else:
+        for i in range(len(vertices)):
+            p1 = vertices[i]
+            p2 = vertices[(i + 1) % len(vertices)]
+            segments.append({"p1": p1, "p2": p2})
 
     for segment in segments:
         p1 = segment["p1"]
@@ -188,17 +184,77 @@ def generate_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, shape_ty
                 dist_to_p1 = math.hypot(slot_x - p1[0], slot_y - p1[1])
                 dist_to_p2 = math.hypot(slot_x - p2[0], slot_y - p2[1])
                 distance_to_corner = round(min(dist_to_p1, dist_to_p2), 3)
-                dist_to_speaker = round(math.hypot(slot_x - speaker["x_m"], slot_y - speaker["y_m"]), 3)
 
                 foam_slots.append({
                     "x_m": slot_x,
                     "y_m": slot_y,
                     "distance_to_corner": distance_to_corner,
-                    "distance_to_speaker": dist_to_speaker,
+                    "distance_to_speaker": 0.0,  # uzupełnimy za chwilę
                     "orientation": orientation_str,
                     "normal_vector": [nx, ny],
                     "wall_direction": [dx, dy]
                 })
+
+    speaker = {}
+    for attempt in range(MIC_MAX_ATTEMPTS + 1):
+        if attempt == MIC_MAX_ATTEMPTS:
+            raise ValueError(f"Couldn't place speaker in {shape_type} due to distance constraints (seed={seed})")
+        sx = round(rng.uniform(WALL_MARGIN, max_width - WALL_MARGIN), 2)
+        sy = round(rng.uniform(WALL_MARGIN, max_height - WALL_MARGIN), 2)
+
+        if not is_point_in_shape(sx, sy, shape_type, params, margin=WALL_MARGIN):
+            continue
+
+        too_close = False
+        for slot in foam_slots:
+            if math.hypot(sx - slot["x_m"], sy - slot["y_m"]) < MIN_SPEAKER_FOAM_DISTANCE:
+                too_close = True
+                break
+        if too_close:
+            continue
+
+        speaker = {"x_m": sx, "y_m": sy}
+        break
+
+    for slot in foam_slots:
+        slot["distance_to_speaker"] = round(math.hypot(slot["x_m"] - speaker["x_m"], slot["y_m"] - speaker["y_m"]), 3)
+
+    microphones = []
+    attempts = 0
+    while len(microphones) < num_mics:
+        attempts += 1
+        if attempts > MIC_MAX_ATTEMPTS:
+            raise ValueError(
+                f"Couldn't place {num_mics} microphones in {shape_type} due to distance constraints (seed={seed})")
+
+        mx = round(rng.uniform(WALL_MARGIN, max_width - WALL_MARGIN), 2)
+        my = round(rng.uniform(WALL_MARGIN, max_height - WALL_MARGIN), 2)
+
+        if not is_point_in_shape(mx, my, shape_type, params, margin=WALL_MARGIN):
+            continue
+
+        if math.hypot(mx - speaker["x_m"], my - speaker["y_m"]) < MIN_MIC_SPEAKER_DISTANCE:
+            continue
+
+        too_close_to_mic = False
+        for mic in microphones:
+            if math.hypot(mx - mic["x_m"], my - mic["y_m"]) < MIN_MIC_MIC_DISTANCE:
+                too_close_to_mic = True
+                break
+        if too_close_to_mic:
+            continue
+
+        too_close_to_foam = False
+        for slot in foam_slots:
+            if math.hypot(mx - slot["x_m"], my - slot["y_m"]) < MIN_MIC_FOAM_DISTANCE:
+                too_close_to_foam = True
+                break
+        if too_close_to_foam:
+            continue
+
+        candidate = {"x_m": mx, "y_m": my}
+        if candidate not in microphones:
+            microphones.append(candidate)
 
     room_obj = Room(
         room_shape=shape_type,
