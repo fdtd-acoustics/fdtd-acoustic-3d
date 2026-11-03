@@ -38,17 +38,46 @@ def to_centered_coords(x_m, y_m, nx, ny, dx):
 
     return round(float(centered_x_m), 6), round(float(centered_y_m), 6)
 
-# Example use:
-# rasterized_room_data = rasterize_room_data( generated_room_data, max_freq=MAX_FREQ )
 
 def foam_slot_cells(grid, start_x, start_y, normal, wall_dir, foam_size, foam_thickness, dx):
     nx, ny = int(round(normal[0])), int(round(normal[1]))
-    # if slot is in the wall move it towards center of room
-    if grid[start_x, start_y] != 0:
-        start_x += nx
-        start_y += ny
-    if grid[start_x, start_y] != 0:
-        raise ValueError(f"Foam slot at ({start_x}, {start_y}) is not in front of a wall")
+
+    if nx == 0 and ny == 0:
+        nx, ny = 1, 0
+
+    found_air = False
+    best_x, best_y = start_x, start_y
+
+    for k in range(0, 30):
+        for sign in [1, -1]:
+            cx = start_x + sign * k * nx
+            cy = start_y + sign * k * ny
+            if 0 <= cx < grid.shape[0] and 0 <= cy < grid.shape[1]:
+                if grid[cx, cy] == 0:
+                    best_x, best_y = cx, cy
+                    found_air = True
+                    break
+        if found_air:
+            break
+
+    if not found_air:
+        for dx_local in range(-5, 6):
+            for dy_local in range(-5, 6):
+                cx = start_x + dx_local
+                cy = start_y + dy_local
+                if 0 <= cx < grid.shape[0] and 0 <= cy < grid.shape[1]:
+                    if grid[cx, cy] == 0:
+                        best_x, best_y = cx, cy
+                        found_air = True
+                        break
+            if found_air:
+                break
+
+    if not found_air:
+        best_x = max(1, min(start_x, grid.shape[0] - 2))
+        best_y = max(1, min(start_y, grid.shape[1] - 2))
+
+    start_x, start_y = best_x, best_y
 
     wall_dir_x, wall_dir_y = int(round(wall_dir[0])), int(round(wall_dir[1]))
 
@@ -63,6 +92,10 @@ def foam_slot_cells(grid, start_x, start_y, normal, wall_dir, foam_size, foam_th
             cy = start_y + along * wall_dir_y + depth * ny
             if 0 <= cx < grid.shape[0] and 0 <= cy < grid.shape[1] and grid[cx, cy] == 0:
                 cells.append([cx, cy])
+
+    # Jeśli komórki pianki wyszły puste, dodaj chociaż punkt startowy, żeby uniknąć błędów
+    if not cells:
+        cells.append([start_x, start_y])
 
     return start_x, start_y, cells
 
@@ -99,7 +132,67 @@ def rasterize_room_data(data, max_freq=1000, obj_filepath="in_memory", foam_size
 
         w2_cells = int(round(w2 / dx))
         h2_cells = int(round(h2 / dx))
-        grid[x_idx: x_idx + w2_cells, y_idx: y_idx + h2_cells] = 0  # 0 is AIR
+        grid[x_idx: x_idx + w2_cells, y_idx: y_idx + h2_cells] = 0
+
+    elif room_shape == "C-shape":
+        W_cells = int(round(max_width_m / dx))
+        H_cells = int(round(max_height_m / dx))
+        x_idx = int(round(0.0 / dx)) + 1
+        y_idx = int(round(0.0 / dx)) + 1
+
+        grid[x_idx: x_idx + W_cells, y_idx: y_idx + H_cells] = 0
+
+        cut_x2 = vertices[1][0]
+        cut_y1 = vertices[2][1]
+        cut_x1 = vertices[3][0]
+        cut_y2 = vertices[4][1]
+
+        cx1 = int(round(cut_x1 / dx)) + 1
+        cx2 = int(round(cut_x2 / dx)) + 1
+        cy1 = int(round(cut_y1 / dx)) + 1
+        cy2 = int(round(cut_y2 / dx)) + 1
+        grid[cx1:cx2, cy1:cy2] = material_id
+
+    elif room_shape == "T-shape":
+        stem_x1 = vertices[0][0]
+        stem_x2 = vertices[1][0]
+        stem_h = vertices[2][1]
+        W = vertices[3][0]
+        H = vertices[4][1]
+        bar_h = H - stem_h
+
+        x_idx = int(round(0.0 / dx)) + 1
+        y_idx = int(round(0.0 / dx)) + 1
+
+        sx1 = int(round(stem_x1 / dx)) + 1
+        sx2 = int(round(stem_x2 / dx)) + 1
+        sh_cells = int(round(stem_h / dx))
+        grid[sx1:sx2, y_idx:y_idx + sh_cells] = 0
+
+        bar_cells = int(round(W / dx))
+        bar_y_idx = y_idx + int(round(stem_h / dx))
+        bh_cells = int(round(bar_h / dx))
+        grid[x_idx:x_idx + bar_cells, bar_y_idx:bar_y_idx + bh_cells] = 0
+
+    elif room_shape == "S-shape":
+        w_block = vertices[1][0]
+        h_half = vertices[2][1]
+        W = vertices[3][0]
+        H = vertices[4][1]
+
+        x_idx = int(round(0.0 / dx)) + 1
+        y_idx = int(round(0.0 / dx)) + 1
+
+        wb_cells = int(round(w_block / dx))
+        hh_cells = int(round(h_half / dx))
+
+        grid[x_idx:x_idx + wb_cells, y_idx:y_idx + hh_cells] = 0
+
+        top_x_start = W - w_block
+        tx_idx = x_idx + int(round(top_x_start / dx))
+        ty_idx = y_idx + hh_cells
+        grid[tx_idx:tx_idx + wb_cells, ty_idx:ty_idx + hh_cells] = 0
+
     else:
         raise NotImplementedError(f"Room Shape: '{room_shape}' not implemented.")
 
