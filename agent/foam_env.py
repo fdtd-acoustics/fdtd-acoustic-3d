@@ -7,7 +7,7 @@ import gymnasium
 from gymnasium.core import ObsType, ActType
 
 from agent.metrics import c50
-from assets.rooms_2d.room_2d_generator import generate_l_shape_room, ROOM_WIDTH_MAX, ROOM_LENGTH_MAX
+from assets.rooms_2d.room_2d_generator import generate_room, ROOM_WIDTH_MAX, ROOM_LENGTH_MAX
 from assets.rooms_2d.room_2d_rasterizer import rasterize_room_data
 from simulation.headless_runner import simulate_2d
 
@@ -130,7 +130,7 @@ class FoamEnv(gymnasium.Env):
 
     def _load_room(self, room_seed: int):
         #generate and rasterize the room
-        self.generated_room = generate_l_shape_room(
+        self.generated_room = generate_room(
             material_id=self.material,
             foam_size=self.foam_size,
             num_mics=self.mic_count,
