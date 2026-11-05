@@ -1,12 +1,15 @@
-# ==============================================================================
-# File:         evaluate.py
-# Description:  Comprehensive evaluation script comparing Random, Greedy, and
-#               trained PPO Agent baselines across identical unseen test rooms.
-#               Exports detailed evaluation metrics to JSON and CSV formats
-#               with per-room checkpointing and resume support.
-# Usage:
-#               python -m agent.baselines.evaluate --model output/agent/ppo_dummy.zip --rooms 30
-# ==============================================================================
+"""
+==============================================================================
+File:         evaluate.py
+Description:  Comprehensive evaluation script comparing Random, Greedy, and
+              trained PPO Agent baselines across identical unseen test rooms.
+              Exports detailed evaluation metrics to JSON and CSV formats
+              with per-room checkpointing and resume support.
+Usage Example:
+              python -m agent.baselines.evaluate --model output/agent/ppo_foam_final.zip --rooms 10 --seed_start 0 --max_foams 20 --greedy_step 3 --material 6 --foam_size 0.25 --mic_count 3 --max_freq 1000.0 --room_min 6.0 --room_max 12.0
+
+==============================================================================
+"""
 
 import argparse
 import os
@@ -19,17 +22,6 @@ from tqdm import tqdm
 from sb3_contrib import MaskablePPO
 
 from agent.foam_env import FoamEnv
-
-MATERIAL_ID = 6
-FOAM_SIZE = 0.25
-MIC_COUNT = 3
-MAX_FREQ = 1000
-
-TEST_SEED_START = 20000
-TEST_SEED_COUNT = 30
-MAX_FOAMS_PER_ROOM = 8
-
-GREEDY_SLOT_STEP = 3
 
 OUTPUT_DIR = Path("output/evaluation")
 
@@ -110,11 +102,22 @@ def run_random_baseline(env: FoamEnv, room_seed: int, max_foams: int, pbar_desc:
     _, info = env.reset(options={"room_seed": room_seed})
     history = []
 
+    mean_c50_empty = float(np.mean(info["c50_empty"]))
+    deficit_empty = float(info["deficit_empty"])
+
     history.append({
         "step": 0, "action": None,
-        "mean_c50": float(np.mean(info["c50_empty"])),
-        "deficit": float(info["deficit_empty"]),
+        "mean_c50": mean_c50_empty,
+        "deficit": deficit_empty,
     })
+
+    if deficit_empty == 0.0:
+        return {
+            "method": "Random", "room_seed": room_seed,
+            "success": True, "foams_used": 0,
+            "final_mean_c50": mean_c50_empty, "final_deficit": 0.0,
+            "history": history
+        }
 
     with tqdm(total=max_foams, desc=pbar_desc, leave=True, unit="foam", ncols=100) as pbar:
         terminated = False
@@ -151,18 +154,29 @@ def run_random_baseline(env: FoamEnv, room_seed: int, max_foams: int, pbar_desc:
     }
 
 
-def run_greedy_baseline(env: FoamEnv, room_seed: int, max_foams: int, pbar_desc: str) -> dict:
+def run_greedy_baseline(env: FoamEnv, room_seed: int, max_foams: int, greedy_step: int, pbar_desc: str) -> dict:
     _, info = env.reset(options={"room_seed": room_seed})
     history = []
 
+    mean_c50_empty = float(np.mean(info["c50_empty"]))
+    deficit_empty = float(info["deficit_empty"])
+
     history.append({
         "step": 0, "action": None,
-        "mean_c50": float(np.mean(info["c50_empty"])),
-        "deficit": float(info["deficit_empty"]),
+        "mean_c50": mean_c50_empty,
+        "deficit": deficit_empty,
     })
 
+    if deficit_empty == 0.0:
+        return {
+            "method": "Greedy", "room_seed": room_seed,
+            "success": True, "foams_used": 0,
+            "final_mean_c50": mean_c50_empty, "final_deficit": 0.0,
+            "history": history
+        }
+
     initial_slots = len(np.flatnonzero(env.action_masks()))
-    sampled_initial_slots = len(np.flatnonzero(env.action_masks())[::GREEDY_SLOT_STEP])
+    sampled_initial_slots = len(np.flatnonzero(env.action_masks())[::greedy_step])
     total_simulations = sum(max(1, sampled_initial_slots - i) for i in range(max_foams))
 
     with tqdm(total=total_simulations, desc=pbar_desc, leave=True, unit="sim", ncols=100) as pbar:
@@ -172,7 +186,7 @@ def run_greedy_baseline(env: FoamEnv, room_seed: int, max_foams: int, pbar_desc:
             if len(available) == 0:
                 break
 
-            sampled_available = available[::GREEDY_SLOT_STEP]
+            sampled_available = available[::greedy_step]
 
             best_action = None
             best_deficit = float('inf')
@@ -230,11 +244,22 @@ def run_ppo_agent(env: FoamEnv, model: MaskablePPO, room_seed: int, max_foams: i
     obs, info = env.reset(options={"room_seed": room_seed})
     history = []
 
+    mean_c50_empty = float(np.mean(info["c50_empty"]))
+    deficit_empty = float(info["deficit_empty"])
+
     history.append({
         "step": 0, "action": None,
-        "mean_c50": float(np.mean(info["c50_empty"])),
-        "deficit": float(info["deficit_empty"]),
+        "mean_c50": mean_c50_empty,
+        "deficit": deficit_empty,
     })
+
+    if deficit_empty == 0.0:
+        return {
+            "method": "PPO", "room_seed": room_seed,
+            "success": True, "foams_used": 0,
+            "final_mean_c50": mean_c50_empty, "final_deficit": 0.0,
+            "history": history
+        }
 
     with tqdm(total=max_foams, desc=pbar_desc, leave=True, unit="foam", ncols=100) as pbar:
         terminated = False
@@ -270,16 +295,32 @@ def run_ppo_agent(env: FoamEnv, model: MaskablePPO, room_seed: int, max_foams: i
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Random, Greedy, and PPO agent on test rooms")
     parser.add_argument("--model", type=Path, required=True, help="Path to trained PPO model .zip")
-    parser.add_argument("--rooms", type=int, default=TEST_SEED_COUNT, help="Number of rooms to evaluate")
-    parser.add_argument("--seed_start", type=int, default=TEST_SEED_START, help="Starting room seed")
-    parser.add_argument("--max_foams", type=int, default=MAX_FOAMS_PER_ROOM, help="Max foam count budget")
+    parser.add_argument("--rooms", type=int, default=5, help="Number of rooms to evaluate")
+    parser.add_argument("--seed_start", type=int, default=10001, help="Starting room seed")
+    parser.add_argument("--max_foams", type=int, default=20, help="Max foam count budget")
+    parser.add_argument("--greedy_step", type=int, default=3, help="Greedy search step/stride")
+    parser.add_argument("--material", type=int, default=6, help="Material ID for walls")
+    parser.add_argument("--foam_size", type=float, default=0.25, help="Foam panel size [m]")
+    parser.add_argument("--mic_count", type=int, default=3, help="Number of microphones")
+    parser.add_argument("--max_freq", type=float, default=1000.0, help="Max FDTD simulation frequency [Hz]")
+    parser.add_argument("--room_min", type=float, default=6.0, help="Smallest room side [m]")
+    parser.add_argument("--room_max", type=float, default=12.0, help="Largest room side [m]")
+
     args = parser.parse_args()
 
     ti.init(arch=ti.gpu, log_level=ti.ERROR)
 
     print(f"\nLoading PPO model from {args.model}...")
     model = MaskablePPO.load(args.model, device="cpu")
-    env = FoamEnv(material=MATERIAL_ID, foam_size=FOAM_SIZE, mic_count=MIC_COUNT, max_freq=MAX_FREQ)
+
+    env = FoamEnv(
+        material=args.material,
+        foam_size=args.foam_size,
+        mic_count=args.mic_count,
+        max_freq=args.max_freq,
+        room_min=args.room_min,
+        room_max=args.room_max
+    )
 
     json_path = OUTPUT_DIR / "evaluation_results.json"
 
@@ -295,15 +336,14 @@ def main():
                     seed_counts[s] = seed_counts.get(s, 0) + 1
                 completed_seeds = {s for s, count in seed_counts.items() if count >= 3}
                 if completed_seeds:
-                    print(
-                        f"[Resume] Found saved results for seeds: {sorted(list(completed_seeds))}.")
+                    print(f"[Resume] Found saved results for seeds: {sorted(list(completed_seeds))}.")
                     all_results = [r for r in loaded if r["room_seed"] in completed_seeds]
         except Exception:
             completed_seeds = set()
 
     seeds = [args.seed_start + i for i in range(args.rooms)]
     print(
-        f"Starting evaluation across {len(seeds)} rooms (seeds {seeds[0]}..{seeds[-1]}, Greedy stride: {GREEDY_SLOT_STEP})")
+        f"Starting evaluation across {len(seeds)} rooms (seeds {seeds[0]}..{seeds[-1]}, Greedy stride: {args.greedy_step})")
 
     for room_seed in seeds:
         if room_seed in completed_seeds:
@@ -312,9 +352,25 @@ def main():
 
         print(f"\nEvaluating room (Seed: {room_seed})")
 
+        _, info = env.reset(options={"room_seed": room_seed})
+        if info["deficit_empty"] == 0.0:
+            print(f" -> [Skipped] Room (Seed: {room_seed}) already meets the target C50 (>= 3 dB) in its empty state.")
+            room_res = []
+            for method in ["Random", "Greedy", "PPO"]:
+                room_res.append({
+                    "method": method, "room_seed": room_seed,
+                    "success": True, "foams_used": 0,
+                    "final_mean_c50": float(np.mean(info["c50_empty"])), "final_deficit": 0.0,
+                    "history": [
+                        {"step": 0, "action": None, "mean_c50": float(np.mean(info["c50_empty"])), "deficit": 0.0}]
+                })
+            all_results.extend(room_res)
+            save_room_checkpoint(room_res, OUTPUT_DIR)
+            continue
+
         res_ppo = run_ppo_agent(env, model, room_seed, args.max_foams, pbar_desc=f"  [PPO Agent]")
         res_rand = run_random_baseline(env, room_seed, args.max_foams, pbar_desc=f"  [Random]")
-        res_greedy = run_greedy_baseline(env, room_seed, args.max_foams, pbar_desc=f"  [Greedy]")
+        res_greedy = run_greedy_baseline(env, room_seed, args.max_foams, args.greedy_step, pbar_desc=f"  [Greedy]")
 
         room_res = [res_rand, res_greedy, res_ppo]
         all_results.extend(room_res)

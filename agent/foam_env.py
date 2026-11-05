@@ -64,7 +64,9 @@ class FoamEnv(gymnasium.Env):
                  material: int,
                  foam_size: float,
                  mic_count: int,
-                 max_freq: float
+                 max_freq: float,
+                 room_min: float,
+                 room_max: float
         ):
         super().__init__()
         self.action_space = gymnasium.spaces.Discrete(MAX_SLOTS)
@@ -75,6 +77,8 @@ class FoamEnv(gymnasium.Env):
         self.foam_size = foam_size
         self.mic_count = mic_count
         self.max_freq = max_freq
+        self.room_min = room_min
+        self.room_max = room_max
 
         self.sim_count = 0
         self.chosen_foams = []
@@ -134,7 +138,12 @@ class FoamEnv(gymnasium.Env):
             material_id=self.material,
             foam_size=self.foam_size,
             num_mics=self.mic_count,
-            seed=room_seed
+            seed=room_seed,
+            room_width_min=self.room_min,
+            room_width_max=self.room_max,
+            room_length_min=self.room_min,
+            room_length_max=self.room_max,
+            shape_type="L-shape"
         )
         self.rasterized_room = rasterize_room_data(
             self.generated_room,
@@ -236,7 +245,7 @@ if __name__ == "__main__":
 
     ti.init(arch=ti.gpu, log_level=ti.ERROR)
 
-    env = FoamEnv(material=5, foam_size=0.25, mic_count=3, max_freq=1000)
+    env = FoamEnv(material=5, foam_size=0.25, mic_count=3, max_freq=1000, room_min=6, room_max=12)
     check_env(env, skip_render_check=True)
     print("check_env OK")
 

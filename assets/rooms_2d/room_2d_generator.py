@@ -3,10 +3,10 @@ import os
 import json
 import math
 
-ROOM_WIDTH_MIN = 4.0
-ROOM_WIDTH_MAX = 8.0
-ROOM_LENGTH_MIN = 4.0
-ROOM_LENGTH_MAX = 8.0
+ROOM_WIDTH_MIN = 6.0
+ROOM_WIDTH_MAX = 12.0
+ROOM_LENGTH_MIN = 6.0
+ROOM_LENGTH_MAX = 12.0
 
 MIN_MIC_SPEAKER_DISTANCE = 1.0      # [m]
 MIN_MIC_MIC_DISTANCE = 0.8          # [m]
@@ -75,14 +75,16 @@ def is_point_in_shape(x, y, shape, params, margin=0.0):
     return False
 
 
-def generate_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, shape_type=None, return_dict=True):
+def generate_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, shape_type=None, return_dict=True,
+                  room_width_min=ROOM_WIDTH_MIN, room_width_max=ROOM_WIDTH_MAX,
+                  room_length_min=ROOM_LENGTH_MIN, room_length_max=ROOM_LENGTH_MAX):
     rng = random.Random(seed)
 
     if shape_type is None:
         shape_type = rng.choice(["L-shape", "C-shape", "S-shape", "T-shape"])
 
-    total_width = round(rng.uniform(ROOM_WIDTH_MIN, ROOM_WIDTH_MAX), 1)
-    total_height = round(rng.uniform(ROOM_LENGTH_MIN, ROOM_LENGTH_MAX), 1)
+    total_width = round(rng.uniform(room_width_min, room_width_max), 1)
+    total_height = round(rng.uniform(room_length_min, room_length_max), 1)
 
     params = None
     vertices = []
@@ -189,7 +191,7 @@ def generate_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, shape_ty
                     "x_m": slot_x,
                     "y_m": slot_y,
                     "distance_to_corner": distance_to_corner,
-                    "distance_to_speaker": 0.0,  # uzupełnimy za chwilę
+                    "distance_to_speaker": 0.0,
                     "orientation": orientation_str,
                     "normal_vector": [nx, ny],
                     "wall_direction": [dx, dy]
@@ -284,8 +286,9 @@ if __name__ == "__main__":
     foam_size = int(input("Size of a single acoustic foam [cm] (default 25) ") or 25)
     foam_size_m = float(foam_size) / 100.0
     mics_count = int(input("Number of microphones per room (default 3) ") or 3)
+    seed_start = int(input("Start seed (default 0) ") or 0)
 
-    for i in range(n):
-        room_dict = generate_room(material_id=1, foam_size=foam_size_m, num_mics=mics_count, seed=i)
+    for i in range(seed_start, seed_start + n, 1):
+        room_dict = generate_room(material_id=1, foam_size=foam_size_m, num_mics=mics_count, seed=i, shape_type="L-shape")
         save_room_to_json(room_dict, filename=f"room_{i}.json")
     print(f"Generated {n} rooms.")
