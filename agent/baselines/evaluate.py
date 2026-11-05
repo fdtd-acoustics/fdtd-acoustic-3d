@@ -308,7 +308,7 @@ def main():
 
     args = parser.parse_args()
 
-    ti.init(arch=ti.gpu, log_level=ti.ERROR)
+    ti.init(arch=ti.cpu, log_level=ti.ERROR)
 
     print(f"\nLoading PPO model from {args.model}...")
     model = MaskablePPO.load(args.model, device="cpu")
