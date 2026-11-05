@@ -6,10 +6,13 @@ Description:  Comprehensive evaluation script comparing Random, Greedy, and
               Exports detailed evaluation metrics to JSON and CSV formats
               with per-room checkpointing and resume support.
 Usage Example:
-              python -m agent.baselines.evaluate --model output/agent/ppo_foam_final.zip --rooms 10 --seed_start 0 --max_foams 20 --greedy_step 3 --material 6 --foam_size 0.25 --mic_count 3 --max_freq 1000.0 --room_min 6.0 --room_max 12.0
+              python -m agent.baselines.evaluate --model output/agent/ppo_foam_final.zip --rooms 10 --seed_start 0 --max_foams 20 --greedy_step 3 --material 5 --foam_size 0.25 --mic_count 3 --max_freq 1000.0 --room_min 6.0 --room_max 12.0
 
 ==============================================================================
 """
+
+import taichi as ti
+ti.init(arch=ti.cpu, offline_cache=False, kernel_profiler=False)
 
 import argparse
 import os
@@ -17,7 +20,6 @@ import json
 import csv
 from pathlib import Path
 import numpy as np
-import taichi as ti
 from tqdm import tqdm
 from sb3_contrib import MaskablePPO
 
@@ -308,10 +310,8 @@ def main():
 
     args = parser.parse_args()
 
-    ti.init(arch=ti.cpu, log_level=ti.ERROR)
-
     print(f"\nLoading PPO model from {args.model}...")
-    model = MaskablePPO.load(args.model, device="cpu")
+    model = MaskablePPO.load(args.model, device="cpu", custom_objects={"policy_kwargs": {}})
 
     env = FoamEnv(
         material=args.material,
