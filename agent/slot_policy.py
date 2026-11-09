@@ -74,6 +74,10 @@ class SlotNetwork(nn.Module):
 
 
 class SlotPolicy(MaskableActorCriticPolicy):
+    def __init__(self, *args, critic_lr_scale: float = 1.0, **kwargs):
+        self.critic_lr_scale = critic_lr_scale
+        super().__init__(*args, **kwargs)
+
     # switch original Policy to SlotNetwork
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = SlotNetwork()
@@ -89,8 +93,16 @@ class SlotPolicy(MaskableActorCriticPolicy):
             self.init_weights(self.mlp_extractor.scorer[-1], gain=0.01)
             self.init_weights(self.value_net, gain=1.0)
 
-        self.optimizer = self.optimizer_class(
-            self.parameters(),
-            lr=lr_schedule(1),
-            **self.optimizer_kwargs,
-        )
+        self.optimizer = self.make_optimizer(lr_schedule(1))
+
+    def make_optimizer(self, lr: float) -> torch.optim.Optimizer:
+        """Critic head in its own parameter group with "lr_scale", the shared encoder learns at the actor rate."""
+        if self.critic_lr_scale == 1.0:
+            # a single group, as in models saved before this option, so their optimizer state still loads
+            return self.optimizer_class(self.parameters(), lr=lr, **self.optimizer_kwargs)
+        critic = [*self.mlp_extractor.critic.parameters(), *self.value_net.parameters()]
+        critic_ids = {id(p) for p in critic}
+        rest = [p for p in self.parameters() if id(p) not in critic_ids]
+        return self.optimizer_class([{"params": rest, "lr_scale": 1.0},
+                                     {"params": critic, "lr_scale": self.critic_lr_scale}],
+                                    lr=lr, **self.optimizer_kwargs)

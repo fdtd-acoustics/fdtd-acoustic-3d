@@ -7,37 +7,49 @@ import gymnasium
 from gymnasium.core import ObsType, ActType
 
 from agent.metrics import c50
-from assets.rooms_2d.room_2d_generator import generate_room, ROOM_WIDTH_MAX, ROOM_LENGTH_MAX
+from assets.rooms_2d.room_2d_generator import generate_room, ROOM_WIDTH_MIN, ROOM_WIDTH_MAX
 from assets.rooms_2d.room_2d_rasterizer import rasterize_room_data
 from simulation.headless_runner import simulate_2d
 
 MAX_SLOTS = 200
-RESET_TAICHI_EVERY = 200
+RESET_TAICHI_EVERY = 256
 
 TARGET_C50 = 3.0          # [dB] every microphone should reach at least this
-FOAM_COST = 0.5           # [dB of deficit] penalty for every placed foam
+FOAM_COST = 2.0           # [dB of deficit] penalty for every placed foam, well above the critic error (~0.8)
 MAX_FOAM_FRACTION = 0.3   # foam budget = this fraction of the room's slots
 MAX_ROOM_DRAWS = 50       # rooms already meeting the target are skipped in training
 
 TRAIN_ROOM_SEEDS = 10_000  # training rooms use seeds [0, TRAIN_ROOM_SEEDS), test rooms use seeds above
 
-# positions and distances are divided by the largest possible room, not by the current one,
-# so 0.1 means the same number of metres in every room and the network can tell room size
-MAX_DIAGONAL = math.hypot(ROOM_WIDTH_MAX, ROOM_LENGTH_MAX)
+OBS_ROOM_SIDE = 12.0
+MAX_DIAGONAL = math.hypot(OBS_ROOM_SIDE, OBS_ROOM_SIDE)
+
+CROWD_RADIUS = 1.0   # [m] foams closer than this to a slot count as its neighbours
+CROWD_FULL = 8       # this many neighbours (a full metre of wall on both sides) gives the feature value 1
 
 # observation columns (one row per slot)
+# no absolute x, y on purpose: with them the agent memorised "start in the (0, 0) corner and go along the wall"
 F_EXISTS = 0              # 1 for a real slot, 0 for padding
-F_X, F_Y = 1, 2
-F_NORMAL_X, F_NORMAL_Y = 3, 4
-F_DIST_SPEAKER = 5
-F_DIST_MICS_MEAN = 6
-F_DIST_UNSATISFIED_MIC = 7  # nearest microphone still below target
-F_DIST_CORNER = 8
-F_DIST_NEAREST_FOAM = 9
-F_OCCUPIED = 10
-F_DEFICIT = 11              # global, same in every row
-F_BUDGET_LEFT = 12          # global, same in every row
-NUM_OF_FEATURES = 13
+F_NORMAL_X, F_NORMAL_Y = 1, 2
+F_DIST_SPEAKER = 3
+F_DIST_MICS_MEAN = 4
+F_DIST_UNSATISFIED_MIC = 5  # nearest microphone still below target
+F_DIST_CORNER = 6
+F_EXCESS_PATH = 7           # speaker -> slot -> mic minus speaker -> mic, mean over mics below target
+F_DIST_NEAREST_FOAM = 8
+F_FOAMS_NEARBY = 9          # foams within CROWD_RADIUS
+F_WALL_LENGTH = 10
+F_WALL_COVERAGE = 11        # fraction of this wall already covered with foam
+F_OPPOSITE_COVERAGE = 12    # fraction of the walls facing this one already covered with foam
+# per microphone, mics sorted from the largest deficit, so the first block is always the mic that needs most help
+OBS_MICS = 3                # rooms with fewer mics get padding blocks (far away, no deficit)
+F_MIC_START = 13
+F_MIC_DIST, F_MIC_EXCESS_PATH, F_MIC_DEFICIT = 0, 1, 2  # offsets inside one mic block
+MIC_BLOCK = 3
+F_OCCUPIED = F_MIC_START + OBS_MICS * MIC_BLOCK
+F_DEFICIT = F_OCCUPIED + 1      # global, same in every row
+F_BUDGET_LEFT = F_OCCUPIED + 2  # global, same in every row
+NUM_OF_FEATURES = F_OCCUPIED + 3
 
 
 def c50_deficit(c50_per_mic: np.ndarray) -> float:
@@ -64,7 +76,8 @@ class FoamEnv(gymnasium.Env):
                  material: int,
                  foam_size: float,
                  mic_count: int,
-                 max_freq: float
+                 max_freq: float,
+                 room_size: tuple[float, float] = (ROOM_WIDTH_MIN, ROOM_WIDTH_MAX)
         ):
         super().__init__()
         self.action_space = gymnasium.spaces.Discrete(MAX_SLOTS)
@@ -75,6 +88,11 @@ class FoamEnv(gymnasium.Env):
         self.foam_size = foam_size
         self.mic_count = mic_count
         self.max_freq = max_freq
+        if mic_count > OBS_MICS:
+            raise ValueError(f"The observation has room for at most {OBS_MICS} microphones")
+        if room_size[1] > OBS_ROOM_SIDE:
+            raise ValueError(f"Rooms larger than {OBS_ROOM_SIDE} m do not fit the observation normalisation")
+        self.room_size = room_size  # (min, max) side length [m] of generated rooms
 
         self.sim_count = 0
         self.chosen_foams = []
@@ -97,9 +115,29 @@ class FoamEnv(gymnasium.Env):
     def _observation(self) -> np.ndarray:
         room = self.generated_room
         mics = np.array([[m['x_m'], m['y_m']] for m in room['microphones']])
+        speaker = np.array([room['speaker']['x_m'], room['speaker']['y_m']])
         unsatisfied = mics[self.c50_per_mic < TARGET_C50]
         slots = room['foam_slots']
-        foams = np.array([[slots[i]['x_m'], slots[i]['y_m']] for i in self.chosen_foams]).reshape(-1, 2)
+        positions = np.array([[s['x_m'], s['y_m']] for s in slots])
+        foams = positions[self.chosen_foams].reshape(-1, 2)
+
+        occupied = np.zeros(len(slots), dtype=bool)
+        occupied[self.chosen_foams] = True
+        wall_coverage = np.array([occupied[self.slot_wall == w].mean() for w in range(len(self.wall_normals))])
+        opposite_coverage = np.zeros(len(self.wall_normals))
+        for w, normal in enumerate(self.wall_normals):
+            facing = np.flatnonzero(self.wall_normals @ normal < -0.5)
+            if len(facing):
+                opposite_coverage[w] = occupied[np.isin(self.slot_wall, facing)].mean()
+
+        # reflection path detour through the slot, for mics that still need help (all mics once every one is fine)
+        path_mics = unsatisfied if len(unsatisfied) else mics
+        direct = np.linalg.norm(path_mics - speaker, axis=1)
+
+        mic_deficits = np.maximum(0.0, TARGET_C50 - self.c50_per_mic)
+        mic_order = np.argsort(-mic_deficits, kind="stable")
+        mics_sorted = mics[mic_order]
+        direct_sorted = np.linalg.norm(mics_sorted - speaker, axis=1)
 
         # global features normalised to [0, 1]
         deficit_norm = min(1.0, self.deficit / (len(mics) * 10.0))
@@ -108,25 +146,52 @@ class FoamEnv(gymnasium.Env):
         observation_arr = np.zeros((MAX_SLOTS, NUM_OF_FEATURES), dtype=np.float32)
 
         for i, slot in enumerate(slots):
-            pos = np.array([slot['x_m'], slot['y_m']])
+            pos = positions[i]
+            wall = self.slot_wall[i]
             mic_dist = np.linalg.norm(mics - pos, axis=1)
+            excess = slot['distance_to_speaker'] + np.linalg.norm(path_mics - pos, axis=1) - direct
+            foams_nearby = np.sum(np.linalg.norm(foams - pos, axis=1) < CROWD_RADIUS) - occupied[i]
 
             row = observation_arr[i]
             row[F_EXISTS] = 1.0
-            row[F_X] = slot['x_m'] / ROOM_WIDTH_MAX
-            row[F_Y] = slot['y_m'] / ROOM_LENGTH_MAX
             row[F_NORMAL_X] = slot['normal_vector'][0]
             row[F_NORMAL_Y] = slot['normal_vector'][1]
             row[F_DIST_SPEAKER] = slot['distance_to_speaker'] / MAX_DIAGONAL
             row[F_DIST_MICS_MEAN] = mic_dist.mean() / MAX_DIAGONAL
             row[F_DIST_UNSATISFIED_MIC] = nearest_distance(unsatisfied, pos)
             row[F_DIST_CORNER] = slot['distance_to_corner'] / MAX_DIAGONAL
+            row[F_EXCESS_PATH] = excess.mean() / (2 * MAX_DIAGONAL)
             row[F_DIST_NEAREST_FOAM] = nearest_distance(foams, pos)
-            row[F_OCCUPIED] = 1.0 if i in self.chosen_foams else 0.0
+            row[F_FOAMS_NEARBY] = foams_nearby / CROWD_FULL
+            row[F_WALL_LENGTH] = self.wall_lengths[wall] / OBS_ROOM_SIDE
+            row[F_WALL_COVERAGE] = wall_coverage[wall]
+            row[F_OPPOSITE_COVERAGE] = opposite_coverage[wall]
+            dist_sorted = np.linalg.norm(mics_sorted - pos, axis=1)
+            for k in range(OBS_MICS):
+                block = F_MIC_START + k * MIC_BLOCK
+                if k < len(mics):
+                    row[block + F_MIC_DIST] = dist_sorted[k] / MAX_DIAGONAL
+                    row[block + F_MIC_EXCESS_PATH] = (slot['distance_to_speaker'] + dist_sorted[k]
+                                                      - direct_sorted[k]) / (2 * MAX_DIAGONAL)
+                    row[block + F_MIC_DEFICIT] = min(1.0, mic_deficits[mic_order[k]] / 10.0)
+                else:
+                    row[block + F_MIC_DIST] = 1.0
+                    row[block + F_MIC_EXCESS_PATH] = 1.0
+            row[F_OCCUPIED] = 1.0 if occupied[i] else 0.0
             row[F_DEFICIT] = deficit_norm
             row[F_BUDGET_LEFT] = budget_left
 
         return np.clip(observation_arr, -1.0, 1.0)
+
+    def _split_slots_into_walls(self):
+        """Wall index of every slot. Slots on one wall share the direction and the coordinate across the wall."""
+        slots = self.generated_room['foam_slots']
+        keys = [(round(s['normal_vector'][0]), round(s['normal_vector'][1]),
+                 round(s['y_m'] if abs(s['normal_vector'][1]) > 0.5 else s['x_m'], 3)) for s in slots]
+        walls = list(dict.fromkeys(keys))
+        self.slot_wall = np.array([walls.index(k) for k in keys])
+        self.wall_normals = np.array([[nx, ny] for nx, ny, _ in walls], dtype=float)
+        self.wall_lengths = np.array([np.sum(self.slot_wall == w) * self.foam_size for w in range(len(walls))])
 
     def _load_room(self, room_seed: int):
         #generate and rasterize the room
@@ -134,7 +199,9 @@ class FoamEnv(gymnasium.Env):
             material_id=self.material,
             foam_size=self.foam_size,
             num_mics=self.mic_count,
-            seed=room_seed
+            seed=room_seed,
+            width_range=self.room_size,
+            length_range=self.room_size,
         )
         self.rasterized_room = rasterize_room_data(
             self.generated_room,
@@ -144,6 +211,7 @@ class FoamEnv(gymnasium.Env):
         slot_count = len(self.rasterized_room['foam_slots'])
         if slot_count > MAX_SLOTS:
             raise ValueError(f"Room {room_seed} has more than {MAX_SLOTS} foam slots")
+        self._split_slots_into_walls()
 
         self.chosen_foams = []
         self.steps_taken = 0

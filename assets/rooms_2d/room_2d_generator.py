@@ -75,14 +75,16 @@ def is_point_in_shape(x, y, shape, params, margin=0.0):
     return False
 
 
-def generate_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, shape_type=None, return_dict=True):
+def generate_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, shape_type=None, return_dict=True,
+                  width_range=(ROOM_WIDTH_MIN, ROOM_WIDTH_MAX),
+                  length_range=(ROOM_LENGTH_MIN, ROOM_LENGTH_MAX)):
     rng = random.Random(seed)
 
     if shape_type is None:
         shape_type = rng.choice(["L-shape", "C-shape", "S-shape", "T-shape"])
 
-    total_width = round(rng.uniform(ROOM_WIDTH_MIN, ROOM_WIDTH_MAX), 1)
-    total_height = round(rng.uniform(ROOM_LENGTH_MIN, ROOM_LENGTH_MAX), 1)
+    total_width = round(rng.uniform(*width_range), 1)
+    total_height = round(rng.uniform(*length_range), 1)
 
     params = None
     vertices = []
