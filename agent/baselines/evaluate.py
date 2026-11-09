@@ -15,7 +15,6 @@ import taichi as ti
 ti.init(arch=ti.cpu, offline_cache=False, kernel_profiler=False)
 
 import argparse
-import os
 import json
 import csv
 from pathlib import Path
@@ -24,7 +23,6 @@ from tqdm import tqdm
 from sb3_contrib import MaskablePPO
 
 from agent.foam_env import FoamEnv
-from agent.slot_policy import SlotPolicy
 
 OUTPUT_DIR = Path("output/evaluation")
 
@@ -298,11 +296,11 @@ def run_ppo_agent(env: FoamEnv, model: MaskablePPO, room_seed: int, max_foams: i
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Random, Greedy, and PPO agent on test rooms")
     parser.add_argument("--model", type=Path, required=True, help="Path to trained PPO model .zip")
-    parser.add_argument("--rooms", type=int, default=5, help="Number of rooms to evaluate")
-    parser.add_argument("--seed_start", type=int, default=10001, help="Starting room seed")
+    parser.add_argument("--rooms", type=int, default=10, help="Number of rooms to evaluate")
+    parser.add_argument("--seed_start", type=int, default=0, help="Starting room seed")
     parser.add_argument("--max_foams", type=int, default=20, help="Max foam count budget")
     parser.add_argument("--greedy_step", type=int, default=3, help="Greedy search step/stride")
-    parser.add_argument("--material", type=int, default=6, help="Material ID for walls")
+    parser.add_argument("--material", type=int, default=5, help="Material ID for walls")
     parser.add_argument("--foam_size", type=float, default=0.25, help="Foam panel size [m]")
     parser.add_argument("--mic_count", type=int, default=3, help="Number of microphones")
     parser.add_argument("--max_freq", type=float, default=1000.0, help="Max FDTD simulation frequency [Hz]")
