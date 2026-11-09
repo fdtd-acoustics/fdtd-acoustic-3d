@@ -233,7 +233,7 @@ class FoamEnv(gymnasium.Env):
         # only between rooms, never inside an episode
         if self.sim_count >= RESET_TAICHI_EVERY:
             ti.reset()
-            ti.init(arch=ti.cpu, log_level=ti.ERROR)
+            ti.init(arch=ti.gpu, log_level=ti.ERROR)
             self.sim_count = 0
 
         if options and "room_seed" in options:
@@ -303,7 +303,7 @@ class FoamEnv(gymnasium.Env):
 if __name__ == "__main__":
     from gymnasium.utils.env_checker import check_env
 
-    ti.init(arch=ti.cpu, log_level=ti.ERROR)
+    ti.init(arch=ti.gpu, log_level=ti.ERROR)
 
     env = FoamEnv(material=5, foam_size=0.25, mic_count=3, max_freq=1000, room_min=6, room_max=12)
     check_env(env, skip_render_check=True)
