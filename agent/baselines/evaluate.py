@@ -24,6 +24,7 @@ from tqdm import tqdm
 from sb3_contrib import MaskablePPO
 
 from agent.foam_env import FoamEnv
+from agent.slot_policy import SlotPolicy
 
 OUTPUT_DIR = Path("output/evaluation")
 
@@ -311,7 +312,7 @@ def main():
     args = parser.parse_args()
 
     print(f"\nLoading PPO model from {args.model}...")
-    model = MaskablePPO.load(args.model, device="cpu", custom_objects={"policy_kwargs": {}})
+    model = MaskablePPO.load(args.model, device="cpu")
 
     env = FoamEnv(
         material=args.material,
