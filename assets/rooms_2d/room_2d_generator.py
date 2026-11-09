@@ -289,6 +289,8 @@ if __name__ == "__main__":
     seed_start = int(input("Start seed (default 0) ") or 0)
 
     for i in range(seed_start, seed_start + n, 1):
-        room_dict = generate_room(material_id=1, foam_size=foam_size_m, num_mics=mics_count, seed=i, shape_type="L-shape")
+        room_dict = generate_room(material_id=1, foam_size=foam_size_m, num_mics=mics_count, seed=i, shape_type="L-shape",
+                                  room_width_min=ROOM_WIDTH_MIN, room_width_max=ROOM_WIDTH_MAX,
+                                  room_length_min=ROOM_LENGTH_MIN, room_length_max=ROOM_LENGTH_MAX)
         save_room_to_json(room_dict, filename=f"room_{i}.json")
     print(f"Generated {n} rooms.")
