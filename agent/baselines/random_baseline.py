@@ -7,6 +7,9 @@
 # Usage Example:
 #               python -m agent.baselines.random_baseline
 # ==============================================================================
+#
+# Currently not in use, this was made as a POC, for evaluating the model use evaluate.py
+#
 
 import taichi as ti
 import numpy as np
