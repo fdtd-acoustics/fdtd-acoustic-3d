@@ -3,11 +3,6 @@ import os
 import json
 import math
 
-ROOM_WIDTH_MIN = 6.0
-ROOM_WIDTH_MAX = 12.0
-ROOM_LENGTH_MIN = 6.0
-ROOM_LENGTH_MAX = 12.0
-
 MIN_MIC_SPEAKER_DISTANCE = 1.0      # [m]
 MIN_MIC_MIC_DISTANCE = 0.8          # [m]
 MIN_MIC_FOAM_DISTANCE = 0.4         # [m]
@@ -75,9 +70,9 @@ def is_point_in_shape(x, y, shape, params, margin=0.0):
     return False
 
 
-def generate_room(material_id=1, foam_size=0.25, num_mics=3, seed=None, shape_type=None, return_dict=True,
-                  room_width_min=ROOM_WIDTH_MIN, room_width_max=ROOM_WIDTH_MAX,
-                  room_length_min=ROOM_LENGTH_MIN, room_length_max=ROOM_LENGTH_MAX):
+def generate_room(material_id=5, foam_size=0.25, num_mics=3, seed=None, shape_type=None, return_dict=True,
+                  room_width_min=6, room_width_max=12,
+                  room_length_min=6, room_length_max=12):
     rng = random.Random(seed)
 
     if shape_type is None:
@@ -289,8 +284,8 @@ if __name__ == "__main__":
     seed_start = int(input("Start seed (default 0) ") or 0)
 
     for i in range(seed_start, seed_start + n, 1):
-        room_dict = generate_room(material_id=1, foam_size=foam_size_m, num_mics=mics_count, seed=i, shape_type="L-shape",
-                                  room_width_min=ROOM_WIDTH_MIN, room_width_max=ROOM_WIDTH_MAX,
-                                  room_length_min=ROOM_LENGTH_MIN, room_length_max=ROOM_LENGTH_MAX)
+        room_dict = generate_room(material_id=5, foam_size=foam_size_m, num_mics=mics_count, seed=i, shape_type="L-shape",
+                                  room_width_min=6, room_width_max=12,
+                                  room_length_min=6, room_length_max=12)
         save_room_to_json(room_dict, filename=f"room_{i}.json")
     print(f"Generated {n} rooms.")
