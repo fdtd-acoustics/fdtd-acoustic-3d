@@ -12,7 +12,7 @@ Usage Example:
 """
 
 import taichi as ti
-ti.init(arch=ti.cpu, offline_cache=False, kernel_profiler=False)
+ti.init(arch=ti.cpu)
 
 import argparse
 import json
