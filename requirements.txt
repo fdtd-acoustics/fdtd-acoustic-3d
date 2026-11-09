@@ -3,6 +3,7 @@ trimesh>=4.12.2
 scipy>=1.17.1
 numpy>=2.4.4
 matplotlib>=3.8.0
-Pillow
+Pillow>=13.0.0
 pyyaml>=6.0
 tqdm>=4.66
+sb3_contrib>=2.9.2
