@@ -127,7 +127,7 @@ def visualize_room_data(data, title="Room Preview", save_path=None, show=False, 
             sy = gy * dx if use_meters else gy
             slot_x.append(sx)
             slot_y.append(sy)
-        plt.scatter(slot_x, slot_y, color='green', marker='s', s=40, label='Foam Slots', zorder=3)
+        plt.scatter(slot_x, slot_y, color='green', marker='s', s=20, label='Foam Slots', zorder=3)
 
     plt.title(title)
 
